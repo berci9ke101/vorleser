@@ -1,0 +1,28 @@
+name: Trigger OKD Build
+
+on:
+  push:
+     branches:
+        - main
+
+jobs:
+  build:
+     runs-on: ubuntu-latest
+     steps:
+        - name: Install oc CLI
+          uses: redhat-actions/openshift-tools-installer@v1
+          with:
+             oc: 4
+
+        - name: Login to OKD
+          uses: redhat-actions/oc-login@v1
+          with:
+             openshift_server_url: https://api.okd.fured.cloud.bme.hu:6443
+             openshift_token: ${{ secrets.OKD_TOKEN }}
+             namespace: vorleser
+
+        - name: Start Backend Build
+          run: oc start-build vorleser-backend
+
+        - name: Start Frontend Build
+          run: oc start-build vorleser-frontend
