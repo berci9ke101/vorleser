@@ -7,8 +7,7 @@ app = Flask(__name__)
 def index():
     try:
         # 'BACKEND_URL' is the service name used in the Docker network
-        os.getenv("BACKEND_URL")
-        response = requests.get("http://backend:5000/api/data")
+        response = requests.get(f"http://{os.getenv("BACKEND_URL")}:5000/api/data")
         data = response.json()
         return f"<h1>Backend says: {data['message']}</h1>"
     except Exception as e:
