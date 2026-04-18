@@ -82,7 +82,8 @@ def start_worker():
     global READER, IS_READY # pylint: disable=global-statement
 
     print("Loading EasyOCR models...")
-    READER = easyocr.Reader(['en', 'hu'])
+    model_path = os.environ.get('EASYOCR_MODULE_PATH', '/app/models')
+    READER = easyocr.Reader(['en', 'hu'], model_storage_directory=model_path, download_enabled=False)
 
     # Indicate to health check that we are fully operational
     IS_READY = True
