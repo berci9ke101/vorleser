@@ -24,7 +24,7 @@ RUN mkdir -p /app/models && chmod -R 775 /app && chgrp -R 0 /app
 ENV HOME=/app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=1000 -r requirements.txt
 
 COPY . .
 
