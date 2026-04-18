@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: vorleser_db
+    environment:
+      POSTGRES_USER: vorleser_user
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: vorleser_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vorleser_user -d vorleser_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: vorleser_rabbit
+    ports:
+      - "15672:15672" # Management UI
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  blob-storage:
+    build:
+      context: ./maulwurf
+    container_name: vorleser_blob
+    volumes:
+      - blob_data:/app/storage
+
+  web:
+    build:
+      context: ./papagei
+    container_name: vorleser_web
+    ports:
+      - "5000:5000" # Web UI: http://localhost:5000
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      blob-storage:
+        condition: service_started
+
+  ocr-worker:
+    build:
+      context: ./leseratte
+    container_name: vorleser_worker
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      blob-storage:
+        condition: service_started
+
+volumes:
+  pgdata:
+  blob_data:
