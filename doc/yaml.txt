@@ -1,0 +1,48 @@
+name: Trigger OKD Build
+
+on:
+  push:
+     branches:
+        - main
+
+jobs:
+  build:
+     runs-on: ubuntu-latest
+     steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+            python-version: '3.9'
+
+        - name: Install dependencies and Pylint
+          run: |
+            python -m pip install --upgrade pip
+            pip install pylint
+            pip install -r backend/requirements.txt
+            pip install -r frontend/requirements.txt
+
+        - name: Run Pylint
+          run: |
+            pylint backend/app.py frontend/app.py
+
+        - name: Install oc CLI
+          uses: redhat-actions/openshift-tools-installer@v1
+          with:
+             oc: 4
+
+        - name: Login to OKD
+          uses: redhat-actions/oc-login@v1
+          with:
+             openshift_server_url: https://api.okd.fured.cloud.bme.hu:6443
+             openshift_token: ${{ secrets.OKD_TOKEN }}
+             namespace: vorleser
+
+        - name: Start Backend Build
+          run: oc start-build vorleser-backend
+
+        - name: Start Frontend Build
+          run: oc start-build vorleser-frontend
+
