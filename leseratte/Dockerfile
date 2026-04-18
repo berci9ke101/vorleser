@@ -19,6 +19,10 @@ RUN apt-get update -y && \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists
 
+#  OKD permission fix for models directory
+RUN mkdir -p /app/models && chmod -R 775 /app && chgrp -R 0 /app
+ENV HOME=/app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
