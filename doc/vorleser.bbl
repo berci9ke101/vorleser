@@ -1,0 +1,15 @@
+\begin{thebibliography}{1}
+
+\bibitem{okd-edge-termination}
+{OKD Community}, {\em Creating advanced routes - Creating a route using the
+  default certificate through an Ingress object}.
+\newblock Elérhető:
+  \url{https://docs.okd.io/4.16/networking/routes/creating-advanced-routes.html#nw-ingress-edge-route-default-certificate_creating-advanced-routes}
+  (Letöltve: 2026-03-15).
+
+\bibitem{redhat-action-login}
+{Red Hat}, {\em OpenShift Login GitHub Action}.
+\newblock Elérhető: \url{https://github.com/redhat-actions/oc-login}
+  (Letöltve: 2026-03-15).
+
+\end{thebibliography}
