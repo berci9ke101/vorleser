@@ -1,0 +1,266 @@
+\documentclass[12pt]{article}
+
+% Packages
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[magyar]{babel}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorlinks = true, linkcolor=blue, urlcolor=blue]{hyperref}
+\usepackage{subfigure}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{amssymb}
+\usepackage{tikz}
+\usepackage{fancyhdr}
+\usepackage[newfloat]{minted}
+\usepackage{caption}
+\usepackage{indentfirst}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable}
+\usepackage{etoolbox}
+
+% Commands
+\renewcommand{\thepage}{-- \arabic{page} --}
+\newcommand\pikture[4]{\begin{figure}[ht!]\centering\includegraphics[width=#4\linewidth]{pic/#1}\caption{#2}\label{#3}\end{figure}}
+
+\newcommand{\say}[2]{%
+	{\rule[0.5ex]{\linewidth}{0.5pt}\hskip-3em\raisebox{-0.4em}{\begin{tikzpicture}[scale=0.008]
+				\fill (48.656200,67.906197)..controls (48.656200,75.199203) and (43.636700,84.164101)..(26.421900,84.164101)
+				..controls (13.507800,84.164101) and (6.457030,75.796898)..(6.457030,68.144501)
+				..controls (6.457030,63.839802) and (9.683590,62.882801)..(11.476600,62.882801)
+				..controls (13.507800,62.882801) and (16.378901,64.320297)..(16.378901,67.906197)
+				..controls (16.378901,70.656197) and (14.347700,72.808601)..(11.359400,72.808601)
+				..controls (10.640600,72.808601) and (10.402300,72.808601)..(10.160200,72.687500)
+				..controls (12.793000,78.902298) and (19.726601,81.773399)..(26.062500,81.773399)
+				..controls (39.570301,81.773399) and (39.570301,73.046898)..(39.570301,68.503899)
+				..controls (39.570301,61.449200) and (37.417999,59.179699)..(35.386700,57.027302)
+				..controls (27.257799,48.300800) and (24.628901,37.179699)..(24.628901,29.886700)
+				--(24.628901,24.148399)..controls (24.628901,21.996099) and (24.628901,21.519501)..(25.941401,21.519501)
+				..controls (27.257799,21.519501) and (27.257799,22.355499)..(27.257799,24.507799)
+				--(27.257799,28.929701)..controls (27.257799,35.984402) and (30.128901,46.503899)..(42.203098,55.472698)
+				..controls (45.550800,57.984402) and (48.656200,61.687500)..(48.656200,67.906197)
+				--cycle;
+				\fill (31.679701,5.859380)..controls (31.679701,8.964840) and (29.050800,11.597700)..(25.941401,11.597700)
+				..controls (22.355499,11.597700) and (20.085899,8.726560)..(20.085899,5.859380)
+				..controls (20.085899,2.269530) and (22.953100,0.000000)..(25.824200,0.000000)
+				..controls (29.171900,0.000000) and (31.679701,2.628910)..(31.679701,5.859380)
+				--cycle;
+	\end{tikzpicture}}}%
+	{\hskip0.5em\textit{#1}\vskip0.5em}%
+	{\begin{minipage}{\dimexpr\textwidth-20pt}{\hspace{15pt} #2}\end{minipage}\vskip0.5em\rule[0.5ex]{\linewidth}{0.5pt}\vskip0.5em}
+}
+
+\BeforeBeginEnvironment{minted}{\begin{tcolorbox}}%
+	\AfterEndEnvironment{minted}{\end{tcolorbox}}%
+	
+\newtcbox{\inlinebox}{
+	on line,
+	boxrule=1pt,
+	arc=2pt,
+	left=2pt,right=2pt,top=1pt,bottom=1pt
+}
+
+% Title
+\title{Felhők hálózati szolgáltatásai laboratórium (BMEVITMMB11)\\\textbf{Vorleser\\OCR alkalmazás}}
+\author{Kovács~Bertalan\\\textbf{RHDBLM}}
+
+\begin{document}
+	\maketitle
+	\thispagestyle{empty}
+	\includegraphics[width=.9\linewidth]{pic/vorleser-logo-full}
+	\begingroup
+	\renewcommand\thefootnote{}
+	\footnotetext{A fenti képet a Google Gemini -- Nano Banana 2 modellje generálta.}
+	\endgroup
+	\clearpage
+	
+	\pagestyle{fancy}
+	\fancyhead[R]{\textbf{Vorleser -- OCR alkalmazás}}
+	\fancyhead[L]{Kovács~Bertalan -- RHDBLM}
+	
+	\tableofcontents
+	\clearpage
+	
+	\section{CI/CD környezet}
+	
+	Ez a fejezet a Vorleser programhoz készült CI/CD környezet konfigurálását és beállítását taglalja egy egyszerű, két komponensből álló, \href{https://www.python.org/}{Python} alapú, \href{https://flask.palletsprojects.com/en/stable/}{Flask} szolgáltatáson keresztül. A CI/CD rendszer a \href{https://git-scm.com/}{Git} alapú \href{https://github.com/}{GitHub} szolgáltatást használja verziókezelő és integrációs, az \href{https://github.com/okd-project/okd}{OKD}-t pedig telepítési és futtatási környezetnek. OKD implementációnak a \href{https://console.okd.fured.cloud.bme.hu/}{BME által futtatott} OKD rendszert választottam.
+
+	\say{Miért OKD?}{Az OKD a natív Kubernetes fölé építve olyan fejlesztői (PaaS) funkciókat biztosít, mint az integrált CI/CD – amelynek köszönhetően a telepítési folyamatok könnyen triggerelhetők GitHubról, és a rendszer a forráskódból automatikusan le is buildeli a szükséges Docker image-eket –, valamint a beépített szoftveres útválasztás és a robusztus belső DNS alapú szolgáltatás-felfedezés. Ezek a funkciók kellenek igazán a lazán csatolt mikroszolgáltatások kommunikációjához.}
+	\subsection{Projekt struktúra}
+	
+	A példában egy kétszintű Flask alkalmazást hoztam létre. A projekt könyvtárszerkezete a következő:
+	
+	\begin{minted}{text}
+vorleser/
+|-- backend/
+|   |-- app.py
+|   |-- requirements.txt
+|   |-- Dockerfile
+|-- frontend/
+|   |-- app.py
+|   |-- requirements.txt
+|   |-- Dockerfile
+|-- .github/workflows/OKD_deploy.yaml
+	\end{minted}
+	
+	A projekt megtalálható a GitHubon: \url{https://github.com/berci9ke101/vorleser}, ez a repozitórium fogja a későbbi Vorleser OCR program verziókezelő rendszerét biztosítani, tehát ide fognak majd a későbbi fájlok is kerülni.
+	
+	\subsection{A verziókezelő rendszer struktúrájának elve}
+	
+	A mikroszolgáltatások elveit követve minden komponens saját könyvtárral és Dockerfile-al rendelkezik, minimalizálva a függőségeket és így elősegítve a könnyű hordozhatóságot. A példában az alábbi Dockerfile-t használtam mindkét komponensnél (backend és frontend):
+	
+	\begin{minted}{dockerfile}
+FROM python:3.9-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["python", "app.py"]
+	\end{minted}
+	
+	A későbbi OCR alkalmazás struktúrája is ezeken az alapokon fog működni.
+	
+	\subsection{A Flask alkamazás bemutatása}
+	A CI/CD pipeline bemutatásához egy egyszerű Flask alkalmazást hoztam létre, amiben a backend publikál egy szövegrészletet a \inlinebox{\texttt{/api/data}} útvonalán. Ezt a szöveget felhasználva a frontend megjeleníti a backend üzenetét. A forráskódok alább olvashatóak:
+	
+	\textbf{Backend:}
+	\begin{minted}{python}
+from flask import Flask, jsonify
+
+app = Flask(__name__)
+@app.route('/api/data')
+def get_data():
+    return jsonify(message="Hello World!")
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+ 	\end{minted}
+ 	
+	\textbf{Frontend:}
+ 	\begin{minted}[breaklines]{python}
+from flask import Flask
+import requests
+import os
+
+app = Flask(__name__)
+@app.route('/')
+def index():
+   try:
+       response = requests.get(f"http://{os.getenv('BACKEND_URL')} :5000/api/data")
+       data = response.json()
+       return f"<h1>Backend says: {data['message']}</h1>"
+    except Exception as e:
+       return f"<h1>Error: {str(e)}</h1>"
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=3000)
+ 	\end{minted}
+ 	
+ 	A frontend a \inlinebox{\texttt{BACKEND\_URL}} környezeti változón meghatározott néven keresztül éri el a backendet. Ezt később be is állítottam.
+	
+	\subsection{Az OKD erőforrások létrehozása}
+	
+	Miután bejelentkeztem a BME webes felületén az OKD konzolba, kimásoltam a bejelentkezési parancsomat, majd az OKD platformon az alábbi parancsokkal inicializáltam a projektet és a szolgáltatásokat:
+	
+	\begin{minted}{bash}
+# Bejelentkezés az OKD parancssori alkalmazásába
+oc login --token=<..> \
+	--server=https://api.okd.fured.cloud.bme.hu:6443
+
+# A projekt létrehozása
+oc new-project vorleser
+
+# A build-ek létrehozása GitHub forrásból, ügyelve a kontextusra
+oc new-app https://github.com/berci9ke101/vorleser.git \
+	--context-dir=/backend \
+	--name=vorleser-backend \
+	--strategy=docker
+
+oc new-app https://github.com/berci9ke101/vorleser.git \
+	--context-dir=/frontend \
+	--name=vorleser-frontend \
+	--strategy=docker
+
+# Szolgáltatások helyezése a komponensek elé és a portjaik kinyitása
+oc expose deployment/vorleser-backend --port=5000 --target-port=5000
+oc expose deployment/vorleser-frontend --port=3000 --target-port=3000
+
+# A frontend szolgáltatás kiengedése alapértelmezett tanúsítvánnyal
+oc expose svc/vorleser-frontend
+oc patch route vorleser-frontend \
+	-p '{"spec":{"tls":{"termination":"edge"}}}'
+	\end{minted}
+	
+	Az OKD lehetővé teszi, hogy a verziókezelő rendszerben az egyes szolgáltatáskomponensek külön könyvtárban helyezkedjenek el. Ekkor az egyes komponensek kontextusát, a verziókezelő rendszerben elhelyezkedő, elérési útvonaluk alapján be kell állítani a fentebb látott \inlinebox{\texttt{--context-dir=<..>}} kapcsoló segítségével.
+	
+	Az alkalmazás elérhetőségéhez szolgáltatásokat hoztam létre a komponensek elé és kiengedtem a frontendet a nyílt Internetre. Mivel a klaszter alapértelmezetten a HTTPS használatára kényszerít, így az alapértelmezett bejövő tanúsítványt kellett használnom, azaz be kellett állítani az \textit{Edge TLS termination}-t \cite{okd-edge-termination}.
+	
+	A frontendnek megadtam a fentebb már említett backend elérhetőségét környezeti változóként:
+	
+	\begin{minted}{bash}
+oc set env deployment/vorleser-frontend BACKEND_URL=vorleser-backend
+	\end{minted}
+	
+	\subsection{Folyamatos integráció}
+	
+	A folyamatos integrációt a GitHub Actions segítségével valósítottam meg. Minden \inlinebox{\texttt{main}} ágra történő push esemény automatikusan elindítja a kód szintaktikai ellenőrzését. Ahhoz, hogy az OKD értesüljön az új verzióról a GitHub action bejelentkezik a BME OKD szerverére és értesíti az új verzióról. Ezután az OKD elkezdi a Docker image-ek buildelését.
+	
+	Az autentikációhoz létre kell hozni egy \inlinebox{\texttt{serviceaccount}}-ot. Ennek a menetét az alábbi parancsokkal végeztem el\footnote{A szükséges parancsok a BME OKD üzemeltetője, Bodor András útmutatása alapján születtek.}:
+	\begin{minted}{bash}
+cat <<EOF | oc apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: custom-build-instantiator
+  namespace: vorleser
+rules:
+- apiGroups: ["build.openshift.io"]
+  resources: ["buildconfigs/instantiate"]
+  verbs: ["create"]
+EOF
+
+oc create rolebinding github-trigger-strict-binding \
+  --role=custom-build-instantiator \
+  --serviceaccount=vorleser:github-trigger \
+  -n vorleser
+
+oc create sa github-trigger
+oc create token github-trigger --duration=8760h
+	\end{minted}
+	A sikerességről a következő képek számolnak be:
+	
+	\pikture{oc-create-role.png}{A megfelelő role létrehozása.}{fig:oc-create-role}{0.8}
+	\pikture{oc-secret.png}{A token létrehozása a rolehoz.}{fig:oc-secret}{0.8}
+	
+	A kapott tokent el kell tárolni a GitHub repozitóriumban az \inlinebox{\texttt{Action secrets}} fül alatt:
+	\pikture{okd-secret.png}{A GitHub Actions token eltárolása.}{fig:okd-secret}{0.8}
+	
+	Maga az action az alábbi yaml fájl segítségével fut le \cite{redhat-action-login}:
+	
+	\begin{tcolorbox}[breakable]
+	\inputminted[breaklines]{yaml}{./yaml.txt}
+	\end{tcolorbox}
+	
+	Az action sikeres lefutása után már nézhetjük is az OKD webes felületén a, ahogy a komponenseink elindulnak:
+	
+	\pikture{gh-succ.png}{Sikeres GitHub Actions lefutás.}{fig:gh-succ}{0.8}
+	
+	\pikture{okd-build-in-progress.png}{Folyamatban lévő build-ek az OKD konzolon.}{fig:okdbuild}{0.6}
+	
+	Megtekintve a \url{https://vorleser-frontend-vorleser.apps.okd.fured.cloud.bme.hu/} linket láthatjuk, hogy működik az alkalmazás:
+	
+	\pikture{working.png}{A működő alkalmazás.}{fig:working}{0.8}
+	
+	\subsection{Összegzés}
+	A jelen fejezetben bemutatott folyamat elsősorban a Vorleser alkalmazás alapjául szolgáló CI/CD környezet és az OKD platform képességeinek demonstrálására fókuszált. A felépített architektúra egy leegyszerűsített, kétkomponensű Flask alkalmazáson keresztül igazolta a GitHub Actions és az OKD integrációjának zökkenőmentes működését.
+	
+	Fontos megjegyezni, hogy ez az implementáció csupán egy kezdeti, \textit{``proof of concept''} fázis volt az alapvető telepítési folyamatok hitelesítésére. A végleges optikai karakterfelismerő (OCR) mikroszolgáltatás-rendszer bevezetésekor ez a bemutatott alap egy jóval kiforrottabb, ``kipolírozott'' CI/CD pipeline-ná fog bővülni. A végleges folyamat a kódminőség szigorúbb ellenőrzését, komplexebb tesztelési fázisokat és a mikroszolgáltatások egymástól független, finomhangolt frissítését is automatizálni fogja a stabil felhős üzemeltetés érdekében.
+	
+	\clearpage
+	
+	\bibliographystyle{ieeetr}\phantomsection\addcontentsline{toc}{section}{\refname}\bibliography{bibliography}
+	
+\end{document}

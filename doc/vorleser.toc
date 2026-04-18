@@ -1,0 +1,8 @@
+\select@language {magyar} \contentsline {section}{\numberline {1}CI/CD környezet}{-- 3 --}{section.1}%
+\select@language {magyar} \contentsline {subsection}{\numberline {1.1}Projekt struktúra}{-- 3 --}{subsection.1.1}%
+\select@language {magyar} \contentsline {subsection}{\numberline {1.2}A verziókezelő rendszer struktúrájának elve}{-- 3 --}{subsection.1.2}%
+\select@language {magyar} \contentsline {subsection}{\numberline {1.3}A Flask alkamazás bemutatása}{-- 4 --}{subsection.1.3}%
+\select@language {magyar} \contentsline {subsection}{\numberline {1.4}Az OKD erőforrások létrehozása}{-- 5 --}{subsection.1.4}%
+\select@language {magyar} \contentsline {subsection}{\numberline {1.5}Folyamatos integráció}{-- 6 --}{subsection.1.5}%
+\select@language {magyar} \contentsline {subsection}{\numberline {1.6}Összegzés}{-- 8 --}{subsection.1.6}%
+\select@language {magyar} \contentsline {section}{Hivatkoz\'asok}{-- 10 --}{section*.8}%
