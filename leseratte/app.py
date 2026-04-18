@@ -10,14 +10,17 @@ import psycopg2
 import easyocr
 from flask import Flask
 
+# Globals
+IS_READY = False
+READER = None
+
 # Health check setup
 health_app = Flask(__name__)
-is_ready = False
 
 @health_app.route('/health')
 def health():
     """Health check endpoint for Docker. Returns 200 if ready, 503 otherwise."""
-    if (reader is not None) and is_ready:
+    if (READER is not None) and IS_READY:
         return "Ready", 200
     return "Initializing models...", 503
 
@@ -25,15 +28,12 @@ def run_health_server():
     """Runs a minimal flask server for Docker health checks."""
     health_app.run(host='0.0.0.0', port=8080)
 
-# Global reader variable
-reader = None
-
 def perform_ocr(image_bytes):
     """
     Runs Optical Character Recognition on the image bytes and
     returns a JSON-serializable list of bounding boxes and text.
     """
-    ocr_result = reader.readtext(image_bytes)
+    ocr_result = READER.readtext(image_bytes)
     bounding_boxes = []
     for (bbox, text, _prob) in ocr_result:
         box_coords = [[int(coord[0]), int(coord[1])] for coord in bbox]
@@ -79,20 +79,20 @@ def process_task(ch, method, _properties, body):
 
 def start_worker():
     """Initializes models and starts consuming RabbitMQ tasks."""
-    global reader, is_ready
-    
+    global READER, IS_READY # pylint: disable=global-statement
+
     print("Loading EasyOCR models...")
-    reader = easyocr.Reader(['en', 'hu'])
-    
+    READER = easyocr.Reader(['en', 'hu'])
+
     # Indicate to health check that we are fully operational
-    is_ready = True
+    IS_READY = True
     print("Models loaded. OCR Worker ready for tasks.")
 
     connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
     channel = connection.channel()
     channel.queue_declare(queue='ocr_tasks')
     channel.basic_consume(queue='ocr_tasks', on_message_callback=process_task)
-    
+
     channel.start_consuming()
 
 if __name__ == '__main__':
