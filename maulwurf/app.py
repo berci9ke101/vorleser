@@ -15,7 +15,11 @@ import os
 from flask import Flask, request, send_file, jsonify
 
 app = Flask(__name__)
-STORAGE_DIR = '/app/storage'
+
+def get_storage_dir():
+    return os.getenv('STORAGE_DIR', '/app/storage')
+
+STORAGE_DIR = get_storage_dir()
 
 # At start we make sure that STORAGE_DIR exists
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -23,7 +27,9 @@ os.makedirs(STORAGE_DIR, exist_ok=True)
 @app.route('/api/blobs/<blob_id>', methods=['PUT'])
 def upload_blob(blob_id):
     """Save image into storage (client sends the data)."""
-    file_path = os.path.join(STORAGE_DIR, blob_id)
+    storage_dir = get_storage_dir()
+    os.makedirs(storage_dir, exist_ok=True)
+    file_path = os.path.join(storage_dir, blob_id)
     with open(file_path, 'wb') as f:
         f.write(request.data)
     return jsonify({'message': 'Saved successfully', 'blob_id': blob_id}), 201
@@ -31,7 +37,8 @@ def upload_blob(blob_id):
 @app.route('/api/blobs/<blob_id>', methods=['GET'])
 def get_blob(blob_id):
     """Download image (client requests the date)."""
-    file_path = os.path.join(STORAGE_DIR, blob_id)
+    storage_dir = get_storage_dir()
+    file_path = os.path.join(storage_dir, blob_id)
     if not os.path.exists(file_path):
         return jsonify({'error': 'No such file'}), 404
     return send_file(file_path)
@@ -39,7 +46,8 @@ def get_blob(blob_id):
 @app.route('/api/blobs/<blob_id>', methods=['DELETE'])
 def delete_blob(blob_id):
     """Delete image (client requests image removal)."""
-    file_path = os.path.join(STORAGE_DIR, blob_id)
+    storage_dir = get_storage_dir()
+    file_path = os.path.join(storage_dir, blob_id)
     if os.path.exists(file_path):
         os.remove(file_path)
         return jsonify({'message': 'Deleted successfully'}), 200
