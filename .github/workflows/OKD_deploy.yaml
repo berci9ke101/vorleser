@@ -40,8 +40,5 @@ jobs:
              openshift_token: ${{ secrets.OKD_TOKEN }}
              namespace: vorleser
 
-        - name: Start Backend Build
-          run: oc start-build vorleser-backend
-
-        - name: Start Frontend Build
-          run: oc start-build vorleser-frontend
+        - name: Start maulwurf Build
+          run: oc start-build vorleser-maulwurf
