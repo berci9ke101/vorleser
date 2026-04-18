@@ -46,6 +46,8 @@ jobs:
 
       - name: Run tests
         working-directory: ./maulwurf
+        env:
+          STORAGE_DIR: /tmp/vorleser_storage_test
         run: |
           python -W ignore::ResourceWarning -m unittest test_app.py
 
