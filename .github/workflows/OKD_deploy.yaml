@@ -45,8 +45,9 @@ jobs:
           pip install -r maulwurf/requirements.txt
 
       - name: Run tests
+        working-directory: ./maulwurf
         run: |
-          python -W ignore::ResourceWarning -m unittest maulwurf/test_app.py
+          python -W ignore::ResourceWarning -m unittest test_app.py
 
   deploy:
     runs-on: ubuntu-latest
