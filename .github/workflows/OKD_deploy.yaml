@@ -80,6 +80,15 @@ jobs:
           openshift_token: ${{ secrets.OKD_TOKEN }}
           namespace: vorleser
 
+      - name: Apply Postgres Infrastructure
+        run: |
+          oc apply -f k8s/postgres-pvc.yaml
+          oc apply -f k8s/postgres-deployment.yaml
+
+      - name: Apply RabbitMQ Infrastructure
+        run: |
+          oc apply -f k8s/rabbitmq-deployment.yaml
+
       - name: Start maulwurf Build
         run: oc start-build vorleser-maulwurf
 
