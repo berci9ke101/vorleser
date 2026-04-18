@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vorleser - Upload</title>
+
+    <style>
+        /* Global page layout */
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f0f2f5;
+        }
+
+        /* Main container card */
+        .upload-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        /* Header styling */
+        h1 {
+            color: #1a73e8;
+            margin-top: 0;
+        }
+
+        /* Paragraph spacing */
+        p {
+            margin: 0 0 10px 0;
+        }
+
+        /* Form controls styling */
+        input,
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        /* Input field styling */
+        input {
+            border: 1px solid #ddd;
+        }
+
+        /* Primary action button */
+        button {
+            border: none;
+            background: #1a73e8;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        /* Button hover state */
+        button:hover {
+            background: #1557b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-card">
+        <h1>Vorleser</h1>
+        <p>Upload a picture for OCR analysis!</p>
+
+        <!-- Upload form: -->
+        <form action="/api/upload" method="post" enctype="multipart/form-data">
+
+            <!-- File input (accepts only images) -->
+            <input type="file" name="image" required accept="image/*">
+
+            <!-- Text description for the uploaded image -->
+            <input type="text" name="description" placeholder="Image description" required>
+
+            <!-- Submit button -->
+            <button type="submit">Upload and Analyze</button>
+        </form>
+    </div>
+
+</body>
+</html>

@@ -10,7 +10,7 @@ import json
 import requests
 import pika
 import psycopg2
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template, redirect
 
 app = Flask(__name__)
 
@@ -41,26 +41,21 @@ def init_db():
     cur.close()
     conn.close()
 
-# Really BASIC HTML UI
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head><title>Vorleser OCR</title></head>
-<body>
-    <h2>Upload Image</h2>
-    <form action="/api/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" required><br><br>
-        <input type="text" name="description" placeholder="Short description" required><br><br>
-        <button type="submit">Upload and Start OCR</button>
-    </form>
-</body>
-</html>
-"""
-
 @app.route('/')
 def index():
     """Renders the HTML form for image upload."""
-    return render_template_string(HTML_TEMPLATE)
+    return render_template('index.html')
+
+@app.route('/view/<string:blob_id>')
+def view_permalink(blob_id):
+    """Renders the HTML view for a specific image using UUID."""
+    return render_template('view.html', blob_id=blob_id)
+
+@app.route('/api/proxy-image/<blob_id>')
+def proxy_image(blob_id):
+    """Blob-storage proxy (because of CORS)."""
+    r = requests.get(f"http://blob-storage:5001/api/blobs/{blob_id}", timeout=10)
+    return r.content, r.status_code, {'Content-Type': 'image/jpeg'}
 
 @app.route('/api/upload', methods=['POST'])
 def upload_image():
@@ -74,8 +69,7 @@ def upload_image():
 
     # 1. Upload to Blob Storage
     blob_id = str(uuid.uuid4()) + "_" + file.filename
-    blob_url = f"http://blob-storage:5001/api/blobs/{blob_id}"
-    requests.put(blob_url, data=image_bytes, timeout=10)
+    requests.put(f"http://blob-storage:5001/api/blobs/{blob_id}", data=image_bytes, timeout=10)
 
     # 2. Save to Postgres
     conn = get_db_connection()
@@ -101,10 +95,30 @@ def upload_image():
     )
     connection.close()
 
-    # Placeholder for now, will implement a status page later
+    # Redirect to view page
+    return redirect(f"/view/{blob_id}")
+
+@app.route('/api/details/<string:blob_id>')
+def image_details(blob_id):
+    """Get JSON details using blob_id."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT description, status, blob_id, detected_text FROM images WHERE blob_id = %s",
+        (blob_id,)
+        )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not row:
+        return jsonify({'error': 'Not found'}), 404
+
     return jsonify({
-        'message': 'Uploaded! The worker will process it shortly.', 
-        'image_id': image_id
+        'description': row[0],
+        'status': row[1],
+        'blob_url': f"/api/proxy-image/{row[2]}",
+        'detected_text': row[3]
     })
 
 if __name__ == '__main__':
