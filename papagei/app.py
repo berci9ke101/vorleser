@@ -10,7 +10,7 @@ import json
 import requests
 import pika
 import psycopg2
-from flask import Flask, request, jsonify, render_template, redirect
+from flask import Flask, request, jsonify, render_template, redirect, abort
 
 app = Flask(__name__)
 
@@ -49,6 +49,16 @@ def index():
 @app.route('/view/<string:blob_id>')
 def view_permalink(blob_id):
     """Renders the HTML view for a specific image using UUID."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM images WHERE blob_id = %s", (blob_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not row:
+        abort(404)
+
     return render_template('view.html', blob_id=blob_id)
 
 @app.route('/api/proxy-image/<blob_id>')
@@ -120,6 +130,11 @@ def image_details(blob_id):
         'blob_url': f"/api/proxy-image/{row[2]}",
         'detected_text': row[3]
     })
+
+@app.errorhandler(404)
+def page_not_found(_e):
+    """Custom 404 error handler."""
+    return render_template('404.html'), 404
 
 if __name__ == '__main__':
     init_db()
