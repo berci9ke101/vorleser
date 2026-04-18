@@ -1,21 +1,32 @@
 """
-OCR Worker Service
-
-This service continuously listens to the RabbitMQ 'ocr_tasks' queue.
-When a task is received, it downloads the image from the Blob Storage,
-runs optical character recognition using EasyOCR, and saves the detected
-text coordinates as JSON back into the PostgreSQL database and sets the status.
+OCR Worker Service with Health Endpoint
 """
 
 import json
+import threading
 import requests
 import pika
 import psycopg2
 import easyocr
+from flask import Flask
 
-# Initialize EasyOCR (downloads models on first run)
-print("Loading EasyOCR models...")
-reader = easyocr.Reader(['en', 'hu'])
+# Health check setup
+health_app = Flask(__name__)
+is_ready = False
+
+@health_app.route('/health')
+def health():
+    """Health check endpoint for Docker. Returns 200 if ready, 503 otherwise."""
+    if (reader is not None) and is_ready:
+        return "Ready", 200
+    return "Initializing models...", 503
+
+def run_health_server():
+    """Runs a minimal flask server for Docker health checks."""
+    health_app.run(host='0.0.0.0', port=8080)
+
+# Global reader variable
+reader = None
 
 def perform_ocr(image_bytes):
     """
@@ -24,15 +35,11 @@ def perform_ocr(image_bytes):
     """
     ocr_result = reader.readtext(image_bytes)
     bounding_boxes = []
-
-    # Using _prob for pylint to pass, even though we don't use it
     for (bbox, text, _prob) in ocr_result:
         box_coords = [[int(coord[0]), int(coord[1])] for coord in bbox]
         bounding_boxes.append({'box': box_coords, 'text': text})
-
     return bounding_boxes
 
-# Using _properties for pylint to pass, even though we don't use it
 def process_task(ch, method, _properties, body):
     """
     Callback function executed when a new message is received from RabbitMQ.
@@ -41,7 +48,6 @@ def process_task(ch, method, _properties, body):
     image_id = data['image_id']
     print(f"Processing task for image ID: {image_id}")
 
-    # 1. Connect to PostgreSQL
     conn = psycopg2.connect(
         host='db',
         database='vorleser_db',
@@ -50,40 +56,47 @@ def process_task(ch, method, _properties, body):
     )
     cur = conn.cursor()
 
-    # 2. Retrieve blob_id from the database
-    cur.execute("SELECT blob_id FROM images WHERE id = %s;", (image_id,))
-    blob_id = cur.fetchone()[0]
+    # Retrieve blob_id from the database
+    try:
+        cur.execute("SELECT blob_id FROM images WHERE id = %s;", (image_id,))
+        blob_id = cur.fetchone()[0]
 
-    # 3. Download the image bytes from the internal Blob Storage (with timeout!)
-    response = requests.get(f"http://blob-storage:5001/api/blobs/{blob_id}", timeout=10)
-    image_bytes = response.content
+        response = requests.get(f"http://blob-storage:5001/api/blobs/{blob_id}", timeout=10)
+        image_bytes = response.content
 
-    # 4. Run Optical Character Recognition (refactored to helper function)
-    bounding_boxes = perform_ocr(image_bytes)
+        bounding_boxes = perform_ocr(image_bytes)
 
-    # 5. Save the results back to the database as JSON
-    cur.execute(
-        "UPDATE images SET detected_text = %s, status = 'completed' WHERE id = %s;",
-        (json.dumps(bounding_boxes), image_id)
-    )
+        cur.execute(
+            "UPDATE images SET detected_text = %s, status = 'completed' WHERE id = %s;",
+            (json.dumps(bounding_boxes), image_id)
+        )
+        conn.commit()
+        print(f"Successfully processed image ID: {image_id}")
+    finally:
+        cur.close()
+        conn.close()
+        ch.basic_ack(delivery_tag=method.delivery_tag)
 
-    conn.commit()
-    cur.close()
-    conn.close()
+def start_worker():
+    """Initializes models and starts consuming RabbitMQ tasks."""
+    global reader, is_ready
+    
+    print("Loading EasyOCR models...")
+    reader = easyocr.Reader(['en', 'hu'])
+    
+    # Indicate to health check that we are fully operational
+    is_ready = True
+    print("Models loaded. OCR Worker ready for tasks.")
 
-    print(f"Successfully processed and saved image ID: {image_id}")
+    connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+    channel = connection.channel()
+    channel.queue_declare(queue='ocr_tasks')
+    channel.basic_consume(queue='ocr_tasks', on_message_callback=process_task)
+    
+    channel.start_consuming()
 
-    # Acknowledge the message so RabbitMQ removes it from the queue
-    ch.basic_ack(delivery_tag=method.delivery_tag)
-
-
-# Set up RabbitMQ connection and start consuming
-# Using blocking connection for simplicity
-connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
-channel = connection.channel()
-
-channel.queue_declare(queue='ocr_tasks')
-channel.basic_consume(queue='ocr_tasks', on_message_callback=process_task)
-
-print("OCR Worker started. Waiting for tasks...")
-channel.start_consuming()
+if __name__ == '__main__':
+    # Start health server in a background thread
+    threading.Thread(target=run_health_server, daemon=True).start()
+    # Run the main worker logic
+    start_worker()

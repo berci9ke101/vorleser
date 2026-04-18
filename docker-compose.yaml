@@ -37,7 +37,7 @@ services:
       context: ./papagei
     container_name: vorleser_web
     ports:
-      - "5000:5000" # Web UI: http://localhost:5000
+      - "5000:5000" # Web UI
     depends_on:
       db:
         condition: service_healthy
@@ -45,11 +45,18 @@ services:
         condition: service_healthy
       blob-storage:
         condition: service_started
+      ocr-worker:
+        condition: service_healthy
 
   ocr-worker:
     build:
       context: ./leseratte
     container_name: vorleser_worker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
     depends_on:
       db:
         condition: service_healthy

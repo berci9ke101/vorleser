@@ -2,6 +2,9 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
+# For correct logging in Docker
+ENV PYTHONUNBUFFERED=1
+
 # Configure apt and install packages
 RUN apt-get update -y && \
     apt-get install -y \
@@ -10,7 +13,7 @@ RUN apt-get update -y && \
     libxext6 \
     libxrender-dev \
     libgl1-mesa-dev \
-    git \
+    curl \
     # cleanup
     && apt-get autoremove -y \
     && apt-get clean -y \
