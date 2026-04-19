@@ -1,15 +1,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rabbitmq
+  name: vorleser-brieftaube
 spec:
   selector:
     matchLabels:
-      app: rabbitmq
+      app: vorleser-brieftaube
   template:
     metadata:
       labels:
-        app: rabbitmq
+        app: vorleser-brieftaube
     spec:
       containers:
       - name: rabbitmq
@@ -21,7 +21,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: rabbitmq
+  name: vorleser-brieftaube
 spec:
   ports:
   - name: amqp
@@ -29,4 +29,4 @@ spec:
   - name: management
     port: 15672
   selector:
-    app: rabbitmq
+    app: vorleser-brieftaube

@@ -79,20 +79,26 @@ jobs:
           openshift_token: ${{ secrets.OKD_TOKEN }}
           namespace: vorleser
 
-      - name: Apply Postgres Infrastructure
+      - name: Apply Infrastructure and Networking
         run: |
           oc apply -f k8s/postgres-pvc.yaml
+          oc apply -f k8s/blob-storage-pvc.yaml
+
           oc apply -f k8s/postgres-deployment.yaml
+          oc apply -f k8s/rabbitmq-deplyoment.yaml
+          oc apply -f k8s/blob-storage-deployment.yaml
+          oc apply -f k8s/ocr-worker-deployment.yaml
+          oc apply -f k8s/frontend-deployment.yaml
 
-      - name: Apply RabbitMQ Infrastructure
+      - name: Start Builds
         run: |
-          oc apply -f k8s/rabbitmq-deployment.yaml
+          oc start-build vorleser-maulwurf --follow
+          oc start-build vorleser-leseratte --follow
+          oc start-build vorleser-papagei --follow
 
-      - name: Start maulwurf Build
-        run: oc start-build vorleser-maulwurf
-
-      - name: Start leseratte Build
-        run: oc start-build vorleser-leseratte
-
-      - name: Start papagei Build
-        run: oc start-build vorleser-papagei
+      - name: Trigger Rollout (Refresh Deployments)
+        run: |
+          # We need to restart the deployments to make them pick up the new images built by OKD
+          oc rollout restart deployment/vorleser-maulwurf
+          oc rollout restart deployment/vorleser-leseratte
+          oc rollout restart deployment/vorleser-papagei

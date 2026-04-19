@@ -17,7 +17,7 @@ app = Flask(__name__)
 def get_db_connection():
     """Establishes a connection to the PostgreSQL database."""
     return psycopg2.connect(
-        host='db',
+        host='vorleser-elefant',
         database='vorleser_db',
         user='vorleser_user',
         password='secretpassword'
@@ -64,7 +64,7 @@ def view_permalink(blob_id):
 @app.route('/api/proxy-image/<blob_id>')
 def proxy_image(blob_id):
     """Blob-storage proxy (because of CORS)."""
-    r = requests.get(f"http://blob-storage:5001/api/blobs/{blob_id}", timeout=10)
+    r = requests.get(f"http://vorleser-maulwurf:5001/api/blobs/{blob_id}", timeout=10)
     return r.content, r.status_code, {'Content-Type': 'image/jpeg'}
 
 @app.route('/api/upload', methods=['POST'])
@@ -79,7 +79,7 @@ def upload_image():
 
     # 1. Upload to Blob Storage
     blob_id = str(uuid.uuid4()) + "_" + file.filename
-    requests.put(f"http://blob-storage:5001/api/blobs/{blob_id}", data=image_bytes, timeout=10)
+    requests.put(f"http://vorleser-maulwurf:5001/api/blobs/{blob_id}", data=image_bytes, timeout=10)
 
     # 2. Save to Postgres
     conn = get_db_connection()
@@ -95,7 +95,7 @@ def upload_image():
 
     # 3. Send RabbitMQ message
     # Using blocking connection for simplicity
-    connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+    connection = pika.BlockingConnection(pika.ConnectionParameters('vorleser-brieftaube'))
     channel = connection.channel()
     channel.queue_declare(queue='ocr_tasks')
     channel.basic_publish(

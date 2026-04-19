@@ -1,15 +1,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: db
+  name: vorleser-elefant
 spec:
   selector:
     matchLabels:
-      app: db
+      app: vorleser-elefant
   template:
     metadata:
       labels:
-        app: db
+        app: vorleser-elefant
     spec:
       containers:
       - name: postgres
@@ -24,19 +24,19 @@ spec:
         ports:
         - containerPort: 5432
         volumeMounts:
-        - name: db-data
+        - name: vorleser-elefant-data
           mountPath: /var/lib/pgsql/data
       volumes:
-      - name: db-data
+      - name: vorleser-elefant-data
         persistentVolumeClaim:
           claimName: postgres-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: db
+  name: vorleser-elefant
 spec:
   ports:
   - port: 5432
   selector:
-    app: db
+    app: vorleser-elefant

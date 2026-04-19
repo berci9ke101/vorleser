@@ -1,5 +1,4 @@
 FROM python:3.9-slim
-
 WORKDIR /app
 
 # For correct logging in Docker

@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vorleser-papagei
+spec:
+  selector:
+    matchLabels:
+      app: vorleser-papagei
+  template:
+    metadata:
+      labels:
+        app: vorleser-papagei
+    spec:
+      initContainers: # Thank you k8s for this wizardry...
+      - name: wait-for-all
+        image: busybox
+        command: ['sh', '-c']
+        args:
+        - |
+          until nc -z vorleser-elefant 5432 && \
+                nc -z vorleser-brieftaube 5672 && \
+                nc -z vorleser-maulwurf 5001 && \
+                wget -q --spider http://vorleser-leseratte:8080/health;
+          do
+            echo waiting for deps;
+            sleep 2;
+          done
+      containers:
+      - name: papagei
+        image: image-registry.openshift-image-registry.svc:5000/vorleser/vorleser-papagei:latest
+        ports:
+        - containerPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vorleser-papagei
+spec:
+  ports:
+  - port: 5000
+    targetPort: 5000
+  selector:
+    app: vorleser-papagei
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: vorleser-papagei
+spec:
+  to:
+    kind: Service
+    name: vorleser-papagei
+  port:
+    targetPort: 5000
+  tls:
+    termination: edge
