@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vorleser-leseratte
+spec:
+  selector:
+    matchLabels:
+      app: vorleser-leseratte
+  template:
+    metadata:
+      labels:
+        app: vorleser-leseratte
+    spec:
+      initContainers: # Thank you k8s for this wizardry...
+      - name: wait-for-deps
+        image: busybox
+        command: ['sh', '-c']
+        args:
+        - |
+          until nc -z vorleser-elefant 5432 && \
+                nc -z vorleser-brieftaube 5672;
+          do
+            echo waiting for deps;
+            sleep 2;
+          done
+      containers:
+      - name: leseratte
+        image: image-registry.openshift-image-registry.svc:5000/vorleser/vorleser-leseratte:latest
+        env:
+        - name: EASYOCR_MODULE_PATH
+          value: "/app/models"
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vorleser-leseratte
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: vorleser-leseratte

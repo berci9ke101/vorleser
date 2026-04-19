@@ -50,7 +50,7 @@ def process_task(ch, method, _properties, body):
     print(f"Processing task for image ID: {image_id}")
 
     conn = psycopg2.connect(
-        host='db',
+        host='vorleser-elefant',
         database='vorleser_db',
         user='vorleser_user',
         password='secretpassword'
@@ -62,7 +62,7 @@ def process_task(ch, method, _properties, body):
         cur.execute("SELECT blob_id FROM images WHERE id = %s;", (image_id,))
         blob_id = cur.fetchone()[0]
 
-        response = requests.get(f"http://blob-storage:5001/api/blobs/{blob_id}", timeout=10)
+        response = requests.get(f"http://vorleser-maulwurf:5001/api/blobs/{blob_id}", timeout=10)
         image_bytes = response.content
 
         bounding_boxes = perform_ocr(image_bytes)
@@ -94,7 +94,7 @@ def start_worker():
     IS_READY = True
     print("Models loaded. OCR Worker ready for tasks.")
 
-    connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+    connection = pika.BlockingConnection(pika.ConnectionParameters('vorleser-brieftaube'))
     channel = connection.channel()
     channel.queue_declare(queue='ocr_tasks')
     channel.basic_consume(queue='ocr_tasks', on_message_callback=process_task)

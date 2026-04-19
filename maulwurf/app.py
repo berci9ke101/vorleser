@@ -21,12 +21,12 @@ def get_storage_dir():
     Returns the storage directory path.
 
     This function retrieves the storage directory path from the 'STORAGE_DIR' environment variable.
-    If the environment variable is not set, it defaults to '/app/storage'.
+    If the environment variable is not set, it defaults to '/app/data'.
 
     Returns:
         str: The path to the storage directory.
     """
-    return os.getenv('STORAGE_DIR', '/app/storage')
+    return os.getenv('STORAGE_DIR', '/app/data')
 
 STORAGE_DIR = get_storage_dir()
 
