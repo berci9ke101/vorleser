@@ -21,6 +21,8 @@
 \usepackage{tcolorbox}
 \tcbuselibrary{breakable}
 \usepackage{etoolbox}
+\usepackage{lscape}
+\usepackage{pdflscape}
 
 % Commands
 \renewcommand{\thepage}{-- \arabic{page} --}
@@ -260,7 +262,139 @@ oc create token github-trigger --duration=8760h
 	Fontos megjegyezni, hogy ez az implementáció csupán egy kezdeti, \textit{``proof of concept''} fázis volt az alapvető telepítési folyamatok hitelesítésére. A végleges optikai karakterfelismerő (OCR) mikroszolgáltatás-rendszer bevezetésekor ez a bemutatott alap egy jóval kiforrottabb, ``kipolírozott'' CI/CD pipeline-ná fog bővülni. A végleges folyamat a kódminőség szigorúbb ellenőrzését, komplexebb tesztelési fázisokat és a mikroszolgáltatások egymástól független, finomhangolt frissítését is automatizálni fogja a stabil felhős üzemeltetés érdekében.
 	
 	\clearpage
+	\section{Weboldal + OCR detektálás funkció}
+	Ez a fejezet a Vorleser alkalmazás elosztott architektúráját és a fejlesztés során hozott technológiai döntéseket mutatja be. A rendszer egy mikroszolgáltatás-alapú ökoszisztémára épül, ahol az egyes funkciókat – mint a webes interfész (\textit{Papagei}), az OCR feldolgozás (\textit{Leseratte}) és a bináris adattárolás (\textit{Maulwurf}) – önálló, saját fejlesztésű, egymástól lazán csatolt konténerizált komponensek látják el. A fejezet részletezi az aszinkron feladatkezelést biztosító \href{https://www.rabbitmq.com/}{RabbitMQ} (\textit{Brieftaube}) üzenetsor integrációját, a \href{https://github.com/JaidedAI/EasyOCR}{EasyOCR} könyvtár alkalmazását, valamint a \href{https://www.postgresql.org/}{PostgreSQL} (\textit{Elefant}) alapú perzisztens adattárolást.
 	
+	\subsection{Projekt struktúra}
+	A Vorleser alkalmazás jelenlegi struktúrája a következő (dokumentáció, licenszelés stb. elhagyásával):
+	\begin{minted}{bash}
+vorleser/
+|-- .github/workflows/OKD_deploy.yaml # CI/CD pipeline leíró
+|-- k8s/ # Deklaratív kubernetes leírók
+|   |-- blob-storage-deployment.yaml
+|   |-- blob-storage-pvc.yaml
+|   |-- frontend-deployment.yaml
+|   |-- ocr-worker-deployment.yaml
+|   |-- postgres-deployment.yaml
+|   |-- postgres-pvc.yaml
+|   |-- rabbitmq-deplyoment.yaml
+|-- leseratte/ # OCR Worker
+|   |-- app.py
+|   |-- requirements.txt
+|   |-- Dockerfile
+|-- maulwurf/ # Blob Storage
+|   |-- app.py
+|   |-- requirements.txt
+|   |-- Dockerfile
+|   |-- test_app.py
+|-- papagei/ # Frontend & API Gateway
+|   |-- templates/
+|   |   |-- 404.html
+|   |   |-- index.html
+|   |   |-- view.html
+|   |-- app.py
+|   |-- requirements.txt
+|   |-- Dockerfile
+|-- docker-compose.yaml # Lokális teszteléshez
+	\end{minted}
+	
+	A projekt megtalálható a GitHubon: \url{https://github.com/berci9ke101/vorleser}
+	
+	\subsection{Komponensek rövid bemutatása és technológia választások indoklása}
+	\begin{itemize}
+		\item \textbf{\textit{Papagei} (Frontend \& API Gateway):} A \textit{Papagei} nem csupán a webes alkalmazás, hanem egy átjáró, amely összefogja a \textit{Maulwurf} (tároló), az \textit{Elefant} (adatbázis) és a \textit{Brieftaube} (üzenetsor) hívásait. Konténerizáltam, hogy az OKD-ban egyszerűen publikálható és elérhető legyen kívülről.
+		\item \textbf{\textit{Leseratte} (OCR feldolgozó):} Az OCR művelet (EasyOCR modellek betöltése és futtatása) lassú és számításigényes. Ha ez a frontendben futna, a felhasználói felület megállna. Ha megnő a feltöltött képek száma, példányszáma növelhető anélkül, hogy a frontendhez hozzá kellene nyúlni.
+		
+		\say{Miért nem FaaS?}{Bár az OCR feladat elméletileg alkalmas lenne FaaS (Function as a Service) megoldásra a párhuzamos végrehajtás miatt, a konténeres megoldást választottam, mert az EasyOCR modellek több gigabájtosak és betöltésük jelentős időt vesz igénybe, ami egy FaaS filozófiába nem illene bele.}
+		\item \textbf{\textit{Maulwurf} (Blob tároló):} Ahelyett, hogy minden pod közvetlenül csatlakozna egy megosztott fájlrendszerhez, a \textit{Maulwurf} egy egységes API-t biztosít a szolgáltatásoknak a képek tárolására. Ez lehetővé teszi, hogy később a fájlrendszert akár S3-ra vagy más felhős tárolóra cseréljük. Egy PVC biztosítja a fájlok integritását egy újraindítást követően.
+		\item \textbf{\textit{Elefant} (PostgreSQL adatbázis):} A képek metaadatait az \inlinebox{\texttt{images}} táblában (\inlinebox{\texttt{id}}, \inlinebox{\texttt{blob\_id}}, \inlinebox{\texttt{description}}, \inlinebox{\texttt{status}}, \inlinebox{\texttt{detected\_text}}) relációs formában tároljuk a konzisztencia miatt. A \inlinebox{\texttt{detected\_text}} oszlop \inlinebox{\texttt{JSONB}} típusa lehetővé teszi az OCR által talált szövegek és koordináták rugalmas, mégis strukturált tárolását. Egy PVC biztosítja az adatok integritását pod újraindítást követően is.
+		\item \textbf{\textit{Brieftaube} (RabbitMQ üzenetsor):} A \textit{Papagei} (Frontend \& API Gateway) és a \textit{Leseratte} (OCR feldolgozó) közötti laza csatolást az \inlinebox{\texttt{ocr\_tasks}} nevű üzenetsor valósítja meg. Ez garantálja a feladatok megőrzését a feldolgozó egység túlterheltsége vagy elérhetetlensége esetén is, hiszen a feldolgozás közben megszakadt munkafolyamatok üzenetei automatikusan visszakerülnek a sorba az ismételt végrehajtáshoz.
+	\end{itemize}
+	
+	\subsection{A komponensek kommunikációjának áttekintése}
+	A rendszer belső adatforgalmát a mikroszolgáltatások közötti laza csatolás és a hibatűrő üzenetküldés jellemzi. Az \hyperref[fig:arch-overview]{alábbi} ábra az ökoszisztéma belső interakcióit és a folyamatok logikai sorrendjét mutatja be a kép feltöltésétől az eredmények megjelenítéséig.
+	
+	\begin{landscape}
+		\begin{figure}[!t]
+			\centering
+			\includegraphics[height=0.7\textheight]{pic/arch-overview.png}
+			\caption{A Vorleser architektúrájának áttekintése}
+			\label{fig:arch-overview}
+		\end{figure}
+		A folyamat menete (ld.\ \ref{fig:arch-overview}.\ ábra): a felhasználó feltölti a képet (0.), amit a \textit{Papagei} fogad (1.), elment a \textit{Maulwurf} tárolóba (2.) és rögzít az \textit{Elefant} adatbázisban (3.). Ezután aszinkron feladatüzenetet küld a \textit{Brieftaube} üzenetsorba (4.) a feldolgozás megkezdéséhez.
+		
+		A \textit{Leseratte} worker kiveszi az üzenetet (5.), megszerzi a Blob ID-t (6.) és letölti a képet a tárolóból (7.), majd az EasyOCR motorral elvégzi a szövegfelismerést. Az eredményeket és a sikeres állapotot (8.) közvetlenül az \textit{Elefant} adatbázisba jegyzi vissza.
+		
+		Végül a felhasználó a \textit{Papagei} felületén keresztül megtekinti az eredményeket (9.). Ez az elosztott felépítés garantálja, hogy a feladatok a komponensek esetleges leállása esetén sem vesznek el.
+	\end{landscape}
+	
+	\subsection{A fejlesztett komponensek felületes vizsgálata}
+	\subsubsection{Maulwurf}
+	Több meglévő Blob tároló implementációt is használhattam volna, de az egyik egyetemi tárgy keretén belül csináltam már egy kezdetleges Blob tárolót, amit kiegészítettem a házi feladathoz.
+	
+	Maga a szolgáltatás pofon egyszerű, egyetlen végpontot publikál, melyen a \inlinebox{\texttt{PUT}}, \inlinebox{\texttt{GET}} és \inlinebox{\texttt{DELETE}} \textit{HTTP} metódusokkal lehet műveleteket, adott azonosítójú fájlokon, végezni. Ezen azonosítók célszerűen \textit{UUID}k, mivel felhasználom a \textit{Papagei} lekérdezéseinél és így óhatatlanul kikerülnek az \textit{URL} mezőbe.
+	
+	A bináris tároló teszteléséhez a Flask keretrendszer beépített tesztelési támogatását használtam \cite{flask-testing}. A tesztelési folyamat során a \inlinebox{\texttt{tempfile}} modul segítségével ideiglenes könyvtárakat hoztam létre, így biztosítva, hogy a tesztek izolált környezetben fussanak, és ne módosítsák a tényleges perzisztens tárolót \cite{temp-testing}. Ezek a tesztek a CI/CD folyamat során is lefutnak.
+	
+	\subsubsection{Leseratte}
+	A \textit{Leseratte} aszinkron worker a \textit{Brieftaube} feladatait dolgozza fel. Az OCR-modellek a Docker build során kerülnek a konténerbe a hálózati függetlenség érdekében \cite{easy-ocr-usage}. A 8080-as porton futó \inlinebox{\texttt{/health}} végpont jelzi a készenlétet (200) vagy az inicializálást (503). A folyamat során a worker a \textit{Maulwurf}-tól kért képet elemzi, az eredményt pedig az \textit{Elefant} adatbázisba menti.
+	
+	Az OCR feldolgozó egység az adatbázis-műveletekhez a \inlinebox{\texttt{psycopg2}} könyvtárat használja, amely hatékony interfészt biztosít a PostgreSQL eléréséhez \cite{psycopg}. A komponens Dockerfile-ja az EasyOCR hivatalos ajánlásai alapján készült, különös tekintettel a szükséges rendszerfüggőségekre (pl. \inlinebox{\texttt{libgl1-mesa-dev}}) \cite{easy-ocr-docker}. A konténerizált környezetben a \inlinebox{\texttt{PYTHONUNBUFFERED=1}} környezeti változó beállítása biztosítja, hogy az alkalmazás naplói azonnal megjelenjenek a standard kimeneten, megkönnyítve a hibakeresést az OKD konzolján \cite{pythonbuffered}.
+	
+	\subsubsection{Papagei}
+	A \textit{Papagei} a Vorleser alkalmazás központi belépési pontja és API átjárója, amely a felhasználói felület kiszolgálásáért és a mikroszolgáltatások közötti koordinációért felel. A szolgáltatás kezeli a képek feltöltését, továbbítja a bináris adatokat a \textit{Maulwurf} tárolóba, rögzíti a kezdeti metaadatokat az \textit{Elefant} adatbázisban, majd aszinkron feladatot ütemez a \textit{Brieftaube} üzenetsorba. Emellett egy belső proxy-t is biztosít, amely lehetővé teszi a tárolt képek megjelenítését\footnote{A proxy-ra a \textit{CORS} (Cross-Origin Resource Sharing) korlátozások elkerülése miatt van szükség, mivel a bináris adatok egy szeparált belső mikroszolgáltatáson helyezkednek el.}.
+	
+	A frontend a Flask sablonkezelő rendszerét alkalmazza a dinamikus HTML tartalom előállításához \cite{flask-templates}. A felismert szövegek vizuális megjelenítésekor a rendszer abszolút pozicionált \inlinebox{\texttt{div}} elemeket hoz létre rétegként az eredeti kép felett. Ez a megoldás nem csak a találatok bekeretezését teszi lehetővé, hanem a felhasználó közvetlenül ki is jelölheti és másolhatja a képen látható szöveget.
+	
+	\subsection{A CI/CD folyamat áttekintése}
+	A Vorleser projekt folyamatos integrációját egy összetett GitHub Actions munkafolyamat automatizálja, amely minden \inlinebox{\texttt{main}} ágra történő feltöltéskor (\textit{push}) aktiválódik. A folyamat két fő szakaszra tagolódik: ellenőrzés és tesztelés, valamint az OKD alapú telepítés.
+	
+	A munkafolyamat első szakaszában a kódminőség biztosítása érdekében elkészítettem egy \textbf{lint} és egy \textbf{test} fázist, amely a \inlinebox{\texttt{pylint}} és a \inlinebox{\texttt{python-unittest}} segítségével ellenőrzi az implementált három mikroszolgáltatás szintaktikai és stilisztikai megfelelőségét, valamint elvégzi a tesztelésüket.
+	
+	A második szakaszban indul el a \textbf{deploy} fázis, amely az ellenőrzött kódból elkészíti a Docker képfájlokat, létrehozza a megfelelő erőforrásokat az OKD környezetben (\inlinebox{\texttt{PVC}}, \inlinebox{\texttt{service}}, \inlinebox{\texttt{route}}, \inlinebox{\texttt{deployment}}), valamint elindítja a megfelelő konténereket.
+	
+	Mivel a Kubernetes alapértelmezetten nem tartalmaz a Docker Compose \inlinebox{\texttt{depends\_on}} paraméteréhez hasonló függőségkezelést, a szolgáltatások indulási sorrendjét \textit{initContainer}-ekkel szabályzom \cite{k8s-dependencies}. Ezek a segédkonténerek hálózati ellenőrzésekkel (ebben a projektben leginkább \inlinebox{\texttt{nc -z}} parancsokkal) várakoznak az adatbázis és az üzenetsor elérhetőségére, mielőtt a fő alkalmazás elindulna.
+	
+	\subsection{Az RBAC hiba elhárítása}
+	A telepítési folyamat során jogosultsági problémák merültek fel az OKD klaszteren, mivel a CI/CD triggert végző fióknak nem volt elegendő joga a \inlinebox{\texttt{PVC}}-k kezeléséhez. A hiba elhárításához a \inlinebox{\texttt{github-trigger}} service account-hoz hozzárendeltem az \inlinebox{\texttt{edit}} szerepkört a projekt névterében. A módosítás után a \inlinebox{\texttt{oc describe rolebinding edit}} parancs igazolta, hogy a jogosultságok megfelelően frissültek.
+	
+	\begin{minted}{bash}
+# Az edit role hozzárendelése a service account-hoz
+oc adm policy add-role-to-user edit \
+system:serviceaccount:vorleser:github-trigger -n vorleser
+
+# A beállítás ellenőrzése
+oc get rolebindings -n vorleser
+
+Name:         edit
+Role:
+  Kind:  ClusterRole
+  Name:  edit
+Subjects:
+  Kind            Name            Namespace
+  ----            ----            ---------
+  ServiceAccount  github-trigger  vorleser
+	\end{minted}
+	
+	\subsection{A működés bemutatása}
+	Ahhoz, hogy elérjem az újonnan elkészített szolgáltatás lekértem a publikus címét az OKD-től:
+	\begin{minted}{bash}
+# Külső route elkérése
+oc get route vorleser-papagei
+
+NAME             HOST/PORT                                            
+vorleser-pap..   vorleser-papagei-vorleser.apps.okd.fured.cloud.bme.hu
+	\end{minted}
+	
+	Ezek után meglátogattam a \url{https://vorleser-papagei-vorleser.apps.okd.fured.cloud.bme.hu/} oldalt és feltöltöttem egy képet, illetve adtam leírást a képnek (ld.\ \ref{fig:web-upload}.\ ábra). Ezek után megtekintettem az analizált képet (ld.\ \ref{fig:web-analysis}.\ ábra).
+	
+	\pikture{web-upload.png}{A feltöltés menete.}{fig:web-upload}{0.3}
+	
+	\pikture{web-analysis.png}{A kész kép oldala.}{fig:web-analysis}{0.5}
+	
+	A beolvasott kép bármikor megtekinthető a \url{https://vorleser-papagei-vorleser.apps.okd.fured.cloud.bme.hu/view/c93b3a4e-0c7e-4210-bb41-5652c5dc6eb9_adatb.webp} oldalon.
+	
+	\clearpage
 	\bibliographystyle{ieeetr}\phantomsection\addcontentsline{toc}{section}{\refname}\bibliography{bibliography}
 	
 \end{document}

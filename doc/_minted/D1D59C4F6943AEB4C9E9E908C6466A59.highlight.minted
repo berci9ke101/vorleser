@@ -1,8 +1,0 @@
-\begin{MintedVerbatim}[commandchars=\\\{\}]
-\PYG{k}{FROM}\PYG{+w}{ }\PYG{l+s}{python:3.9\PYGZhy{}slim}
-\PYG{k}{WORKDIR}\PYG{+w}{ }\PYG{l+s}{/app}
-\PYG{k}{COPY}\PYG{+w}{ }requirements.txt\PYG{+w}{ }.
-\PYG{k}{RUN}\PYG{+w}{ }pip\PYG{+w}{ }install\PYG{+w}{ }\PYGZhy{}\PYGZhy{}no\PYGZhy{}cache\PYGZhy{}dir\PYG{+w}{ }\PYGZhy{}r\PYG{+w}{ }requirements.txt
-\PYG{k}{COPY}\PYG{+w}{ }.\PYG{+w}{ }.
-\PYG{k}{CMD}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}python\PYGZdq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}app.py\PYGZdq{}}\PYG{p}{]}
-\end{MintedVerbatim}
