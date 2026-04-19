@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vorleser-maulwurf
+spec:
+  selector:
+    matchLabels:
+      app: vorleser-maulwurf
+  template:
+    metadata:
+      labels:
+        app: vorleser-maulwurf
+    spec:
+      containers:
+      - name: maulwurf
+        image: image-registry.openshift-image-registry.svc:5000/vorleser/vorleser-maulwurf:latest
+        env:
+        - name: STORAGE_DIR
+          value: "/app/data"
+        ports:
+        - containerPort: 5001
+        volumeMounts:
+        - name: vorleser-maulwurf
+          mountPath: /app/data
+      volumes:
+      - name: vorleser-maulwurf
+        persistentVolumeClaim:
+          claimName: maulwurf-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vorleser-maulwurf
+spec:
+  ports:
+  - port: 5001
+  selector:
+    app: vorleser-maulwurf

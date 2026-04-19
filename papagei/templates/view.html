@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vorleser - Analysis</title>
+
+    <style>
+        /* Global page layout */
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* Main container card */
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            
+            display: inline-block;
+            max-width: 100%;
+            min-width: 500px;
+        }
+
+        /* Header styling */
+        h1 {
+            color: #1a73e8;
+            margin-top: 0;
+        }
+
+        /* Level 2 header styling */
+        h2 {
+            margin: 0;
+        }
+
+        /* Header row */
+        .header-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        /* Description container */
+        .description-box {
+            width: 100%;
+            box-sizing: border-box;
+            
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            background: #f8fafd;
+            border-radius: 8px;
+            padding: 12px 18px;
+            margin: 18px 0;
+        }
+
+        /*
+         * Image wrapper:
+         * - Centers image
+         * - Holds OCR bounding box overlay
+         */
+        .image-container {
+            position: relative;
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            background: white;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        /* Responsive image */
+        img {
+            max-width: 1000px;
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /*
+         * OCR overlay:
+         * - Positioned over image
+         * - Holds bounding boxes
+         */
+        #ocr-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /*
+         * OCR bounding boxes:
+         * - Semi-transparent overlay
+         * - Displays detected text
+         */
+        .ocr-box {
+            position: absolute;
+            border: 3px solid rgba(255, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.4);
+            color: rgba(255, 255, 255, 0.3);
+            white-space: nowrap;
+            cursor: text;
+            pointer-events: auto;
+            line-height: 1;
+            transition: background-color 0.2s;
+        }
+
+        /* Hover effect for OCR boxes */
+        .ocr-box:hover {
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Text selection inside OCR boxes */
+        .ocr-box::selection {
+            background: rgba(0, 120, 215, 0.5);
+            color: white;
+        }
+
+        .status-badge {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+
+        /* Pending state */
+        .pending {
+            background: #ffeaa7;
+            color: #d63031;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Completed state */
+        .completed {
+            background: #55efc4;
+            color: #00b894;
+        }
+
+        /* Pulse animation for pending state */
+        @keyframes pulse {
+            50% { opacity: 0.6; }
+        }
+
+        /* Primary action button */
+        button {
+            width: 20%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border: none;
+            box-sizing: border-box;
+            background: #1a73e8;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #1557b0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1>Image Analysis</h1>
+
+        <!-- Status section -->
+        <div class="header-row">
+            <h2>State:</h2>
+            <span id="status-text" class="status-badge">Checking...</span>
+        </div>
+
+        <!-- Description section -->
+        <h2>Description:</h2>
+        <div class="description-box">
+            <span id="description-text"></span>
+        </div>
+
+        <!-- Image + OCR overlay -->
+        <div class="image-container">
+            <img id="main-image">
+            <div id="ocr-overlay"></div>
+        </div>
+
+        <!-- Navigation back to upload page -->
+        <form action="/">
+            <button type="submit">New Upload</button>
+        </form>
+
+        <script>
+            /*
+             * Renders OCR bounding boxes on top of the image.
+             * - Scales coordinates from original image size to displayed size
+             * - Creates positioned divs for each detected text region
+             */
+            function renderOverlay(img, overlay, detected_text) {
+                const scaleX = img.clientWidth / img.naturalWidth;
+                const scaleY = img.clientHeight / img.naturalHeight;
+
+                overlay.innerHTML = '';
+
+                if (!detected_text) return;
+
+                detected_text.forEach(item => {
+                    const box = item.box;
+
+                    // Extract x/y coordinates
+                    const xs = box.map(p => p[0]);
+                    const ys = box.map(p => p[1]);
+
+                    // Calculate bounding rectangle
+                    const minX = Math.min(...xs), minY = Math.min(...ys);
+                    const maxX = Math.max(...xs), maxY = Math.max(...ys);
+
+                    const div = document.createElement('div');
+                    div.className = 'ocr-box';
+                    div.innerText = item.text;
+
+                    // Position and size scaled to displayed image
+                    div.style.left = (minX * scaleX) + 'px';
+                    div.style.top = (minY * scaleY) + 'px';
+                    div.style.width = ((maxX - minX) * scaleX) + 'px';
+                    div.style.height = ((maxY - minY) * scaleY) + 'px';
+
+                    // Heuristic font size based on box height
+                    div.style.fontSize = ((maxY - minY) * scaleY * 0.8) + 'px';
+
+                    overlay.appendChild(div);
+                });
+            }
+
+            /*
+             * Fetches analysis data from backend and updates UI:
+             * - Updates description and status
+             * - Loads image
+             * - Re-renders OCR overlay
+             * - Polls while status is "pending"
+             */
+            async function updateView() {
+                const response = await fetch('/api/details/{{ blob_id }}');
+                if (!response.ok) return;
+
+                const data = await response.json();
+
+                // Update description
+                document.getElementById('description-text').innerText = data.description;
+
+                // Update status badge
+                const statusEl = document.getElementById('status-text');
+                statusEl.innerText = data.status;
+                statusEl.className = 'status-badge ' + data.status;
+
+                const img = document.getElementById('main-image');
+                const overlay = document.getElementById('ocr-overlay');
+
+                // Check if image source changed
+                const imageChanged = !img.src.includes(data.blob_url);
+
+                if (imageChanged) {
+                    // Render overlay after image loads
+                    img.onload = () => renderOverlay(img, overlay, data.detected_text);
+                    img.src = data.blob_url;
+                } else if (img.complete) {
+                    renderOverlay(img, overlay, data.detected_text);
+                }
+
+                // Poll API while processing is ongoing
+                if (data.status === 'pending') {
+                    setTimeout(updateView, 2000);
+                }
+            }
+
+            /* Start the initial data fetch */
+            updateView();
+        </script>
+    </div>
+</body>
+</html>
