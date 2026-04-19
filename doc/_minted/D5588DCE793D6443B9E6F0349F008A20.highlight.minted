@@ -1,3 +1,0 @@
-\begin{MintedVerbatim}[commandchars=\\\{\}]
-oc\PYG{+w}{ }\PYG{n+nb}{set}\PYG{+w}{ }env\PYG{+w}{ }deployment/vorleser\PYGZhy{}frontend\PYG{+w}{ }\PYG{n+nv}{BACKEND\PYGZus{}URL}\PYG{o}{=}vorleser\PYGZhy{}backend
-\end{MintedVerbatim}
