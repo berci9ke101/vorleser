@@ -138,27 +138,34 @@ def start_rabbit_listener():
 
 @app.route('/api/subscribe', methods=['POST'])
 def subscribe():
-    """Saves a new subscriber to the database."""
-    data = request.json
-    chat_id = data.get('chat_id')
-    
+    chat_id = request.json.get('chat_id')
     if not chat_id:
-        return jsonify({"error": "Chat ID is missing"}), 400
+        return jsonify({"error": "Missing chat_id"}), 400
 
     if save_subscriber(chat_id):
-        # If subscription is successful, send historical data to the new subscriber
         history = get_all_historical_data()
         if history:
-            history_msg = "<b>📂 Historical Analyses Synchronization:</b>\n\n"
-            for row in history[:10]: # Only send the last 10 entries to avoid overwhelming the user
-                history_msg += f"• {row[0]}: <i>{row[1][:50]}...</i>\n"
+            # Shortened header
+            history_msg = "<b>📂 History Sync (Last 5):</b>\n\n"
+            
+            # Just the Last 5 entries, with cleaned and shortened text
+            for row in history[:5]:
+                # Clean and shorten the OCR text for display
+                raw_text = format_ocr_text(row[1])
+                short_text = (raw_text[:60] + "...") if len(raw_text) > 60 else raw_text
+                
+                line = f"• {row[0]}: <i>{short_text}</i>\n"
+                
+                # Check if adding this line would exceed Telegram's message limit (4000 chars)
+                if len(history_msg) + len(line) < 4000:
+                    history_msg += line
+            
             send_telegram(chat_id, history_msg)
         else:
-            send_telegram(chat_id, "Successful subscription! There is no previous data available.")
-        
+            send_telegram(chat_id, "Subscribed! No history yet.")
+            
         return jsonify({"status": "subscribed"}), 200
-    else:
-        return jsonify({"error": "Database error"}), 500
+    return jsonify({"error": "Database error"}), 500
 
 @app.route('/api/history', methods=['GET'])
 def history_api():
