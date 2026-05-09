@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vorleser - Dashboard</title>
+
+    <style>
+        /* Global page layout */
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        /* Main container card */
+        .dashboard-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Header styling */
+        .header {
+            background: #34a853;
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /*Generic card styling*/
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+        }
+
+        /* Section headers */
+        h2 { margin-top: 0; color: #2d8a45; }
+
+        /* Table styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        /* Table header and cell styling */
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* Alternate row coloring */
+        th { background: #f8fafd; color: #666; }
+
+        /* Status tag styling */
+        .status-tag {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        
+        /* Pending state */
+        .pending {
+            background: #ffeaa7;
+            color: #d63031;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Completed state */
+        .completed {
+            background: #55efc4;
+            color: #00b894;
+        }
+
+        /* Live badge styling */
+        .live-badge {
+            background: #d93025;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            vertical-align: middle;
+            animation: blink 1.5s infinite;
+        }
+
+        /* Primary action button */
+        button {
+            width: 20%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border: none;
+            box-sizing: border-box;
+            background: #34a853;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        /* Blinking animation for live badge */
+        @keyframes blink { 
+            50% { opacity: 0.3; } 
+        }
+
+        /* Pulse animation for pending state */
+        @keyframes pulse {
+            50% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Dashboard container -->
+<div class="dashboard-container">
+    <div class="header">
+        <h1>Vorleser - Operator Dashboard</h1>
+        <p>Real-time OCR Subscription & Historical Logs</p>
+    </div>
+
+<!-- Live notifications section -->
+    <div class="card">
+        <h2>Live Notifications <span class="live-badge">LIVE</span></h2>
+        <div id="live-updates">
+            <p style="color: #888;">Waiting for new uploads...</p>
+        </div>
+    </div>
+
+<!-- Historical Analysis Log Table -->
+    <div class="card">
+        <h2>Historical Analysis Log</h2>
+        <table id="history-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Description</th>
+                    <th>Detected Text</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="history-body">
+                </tbody>
+        </table>
+    </div>
+    
+<!-- Subscription form for Telegram notifications -->
+    <div class="card">
+    <h2>Notification Subscription</h2>
+    <p>Add your Telegram Chat ID to receive instant notifications about the analyses!</p>
+    <form id="subscribe-form">
+        <input type="text" id="chat-id" placeholder="Telegram Chat ID (e.g., 123456789)" required 
+               style="width: 70%; padding: 10px; border-radius: 4px; border: 1px solid #ddd;">
+        <button type="submit" style="width: 25%; margin-left: 10px;">Subscribe</button>
+    </form>
+    <p id="sub-status" style="margin-top: 10px; font-weight: bold;"></p>
+</div>
+
+<!-- Navigation back to upload page -->
+    <form action="/">
+        <button type="submit">Back to Home</button>
+    </form>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<script>
+    /* 1. Establish WebSocket connection */
+    const socket = io(); 
+
+    /* 2. Handle real-time updates */
+    socket.on('update_dashboard', (data) => {
+        const liveUpdates = document.getElementById('live-updates');
+        const tbody = document.getElementById('history-body');
+
+        // Update the Live section
+        liveUpdates.innerHTML = `
+            <div style="border-left: 4px solid #34a853; padding-left: 10px; margin-bottom: 10px;">
+                <strong>New analysis received:</strong> ${data.desc}<br>
+                <small>${new Date().toLocaleTimeString()}</small>
+            </div>
+        `;
+
+        // Insert the new row at the top of the table
+        const newRow = `
+            <tr>
+                <td>Now</td>
+                <td>${data.desc}</td>
+                <td><code>${data.text.substring(0, 100)}...</code></td>
+                <td><span class="status-tag completed">completed</span></td>
+            </tr>
+        `;
+        tbody.insertAdjacentHTML('afterbegin', newRow);
+    });
+
+    /* 3. Load actual history from the server */
+    async function loadHistory() {
+        try {
+            const response = await fetch('/api/history');
+            if (!response.ok) throw new Error("Error fetching data");
+            
+            const data = await response.json();
+            const tbody = document.getElementById('history-body');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">No analyses recorded yet.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td>-</td>
+                    <td>${row.desc}</td>
+                    <td><code>${row.text.substring(0, 100)}...</code></td>
+                    <td><span class="status-tag completed">completed</span></td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error("Failed to load history:", err);
+        }
+    }
+
+    // Initialization
+    loadHistory();
+
+    /* 4. Subscription form */
+    document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const chatId = document.getElementById('chat-id').value;
+        const status = document.getElementById('sub-status');
+
+        try {
+            const response = await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId })
+            });
+
+            if (response.ok) {
+                status.style.color = "#34a853";
+                status.innerText = "Subscription successful! You will now receive Telegram notifications.";
+                loadHistory();
+            } else {
+                throw new Error();
+            }
+        } catch (err) {
+            status.style.color = "#d93025";
+            status.innerText = "An error occurred.";
+        }
+    });
+</script>
+</body>
+</html>

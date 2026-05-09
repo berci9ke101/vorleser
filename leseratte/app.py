@@ -45,6 +45,7 @@ def process_task(ch, method, _properties, body):
     """
     Callback function executed when a new message is received from RabbitMQ.
     """
+    # pylint: disable=too-many-locals, broad-exception-caught
     data = json.loads(body)
     image_id = data['image_id']
     print(f"Processing task for image ID: {image_id}")
@@ -57,10 +58,16 @@ def process_task(ch, method, _properties, body):
     )
     cur = conn.cursor()
 
-    # Retrieve blob_id from the database
+    # Retrieve blob_id and description from the database using the image_id
     try:
-        cur.execute("SELECT blob_id FROM images WHERE id = %s;", (image_id,))
-        blob_id = cur.fetchone()[0]
+        cur.execute("SELECT blob_id, description FROM images WHERE id = %s;", (image_id,))
+        result = cur.fetchone()
+
+        if result:
+            blob_id, description = result
+        else:
+            print(f"Image ID {image_id} not found in database.")
+            return
 
         response = requests.get(f"http://vorleser-maulwurf:5001/api/blobs/{blob_id}", timeout=10)
         image_bytes = response.content
@@ -72,6 +79,36 @@ def process_task(ch, method, _properties, body):
             (json.dumps(bounding_boxes), image_id)
         )
         conn.commit()
+
+        # Send real-time notification to Dashboard via RabbitMQ
+        try:
+            notification_conn = pika.BlockingConnection(
+                pika.ConnectionParameters('vorleser-brieftaube')
+            )
+            notification_channel = notification_conn.channel()
+            notification_channel.exchange_declare(
+                exchange='image_notifications',
+                exchange_type='fanout'
+            )
+
+            notification_body = {
+                'desc': description, 
+                'text': json.dumps(bounding_boxes),
+                'status': 'completed'
+            }
+
+            notification_channel.basic_publish(
+                exchange='image_notifications',
+                routing_key='',
+                body=json.dumps(notification_body)
+            )
+            notification_conn.close()
+            print(f"Notification sent for image ID: {image_id}")
+        except pika.exceptions.AMQPError as e:
+            print(f"RabbitMQ notification error: {e}")
+        except Exception as e: # pylint: disable=broad-exception-caught
+            print(f"Unexpected notification error: {e}")
+
         print(f"Successfully processed image ID: {image_id}")
     finally:
         cur.close()
