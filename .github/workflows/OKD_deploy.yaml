@@ -96,7 +96,7 @@ jobs:
           oc start-build vorleser-maulwurf
           oc start-build vorleser-leseratte
           oc start-build vorleser-papagei
-          oc start-build vorleser-notification
+          oc start-build vorleser-klammeraffe
 
       - name: Trigger Rollout (Refresh Deployments)
         run: |
