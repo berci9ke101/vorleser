@@ -47,7 +47,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/subscribe')
-def index():
+def subscribe():
     """Renders the HTML form for image upload."""
     return render_template('subscribe.html')
 
