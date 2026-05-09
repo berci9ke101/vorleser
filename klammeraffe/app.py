@@ -130,8 +130,9 @@ def start_rabbit_listener():
                 current_subs = get_subscribers()
                 if current_subs:
                     raw_text = data.get('text', '')
-                    clean_text = raw_text[:3500] + "..." if len(raw_text) > 3500 else raw_text
-                    
+                    readable_text = format_ocr_text(raw_text)
+                    clean_text = readable_text[:3000] + "..." if len(readable_text) > 3000 else readable_text
+
                     msg = (f"<b>🔔 New OCR Result!</b>\n\n"
                            f"<b>Description:</b> {data.get('desc', 'No description')}\n"
                            f"<b>Text:</b>\n<i>{clean_text}</i>")
