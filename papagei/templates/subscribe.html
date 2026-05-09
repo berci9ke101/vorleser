@@ -213,14 +213,22 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(row => `
-                <tr>
-                    <td>-</td>
-                    <td>${row.desc}</td>
-                    <td><code>${row.text.substring(0, 100)}...</code></td>
-                    <td><span class="status-tag completed">completed</span></td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = data.map(row => {
+                const fullText = Array.isArray(row.text) 
+                        ? row.text.map(t => t.text).join(' ') 
+                        : row.text;
+                
+                const displaySubstr = fullText.substring(0, 100);
+
+                return `
+                    <tr>
+                        <td>-</td>
+                        <td>${row.desc}</td>
+                        <td><code>${displaySubstr}...</code></td>
+                        <td><span class="status-tag completed">completed</span></td>
+                    </tr>
+                `;
+            }).join('');
         } catch (err) {
             console.error("Failed to load history:", err);
         }
