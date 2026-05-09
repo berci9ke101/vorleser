@@ -28,7 +28,10 @@ spec:
         image: image-registry.openshift-image-registry.svc:5000/vorleser/vorleser-klammeraffe:latest
         env:
         - name: TELEGRAM_TOKEN
-          value: "$(TELEGRAM_TOKEN)"
+          valueFrom:
+            secretKeyRef:
+              name: telegram-token
+              key: TELEGRAM_TOKEN
         ports:
         - containerPort: 5002
 ---
