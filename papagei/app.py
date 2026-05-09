@@ -131,6 +131,14 @@ def image_details(blob_id):
         'detected_text': row[3]
     })
 
+@app.route('/api/subscribe', methods=['POST'])
+def proxy_subscribe():
+    """Forward subscription request to Klammeraffe"""
+    klammeraffe_url = "http://vorleser-klammeraffe:5002/api/subscribe"
+
+    response = requests.post(klammeraffe_url, json=request.json, timeout=10)
+    return response.content, response.status_code
+
 @app.errorhandler(404)
 def page_not_found(_e):
     """Custom 404 error handler."""
