@@ -97,6 +97,19 @@ def get_all_historical_data():
         print(f"Error fetching history: {e}")
         return []
 
+def format_ocr_text(raw_data):
+    """Formats the OCR JSON list into a readable string."""
+    try:
+        # If it's already a string, try to parse it as JSON; if it's already a dict/list, use it directly
+        data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+        
+        # If it's a list of dicts, extract the 'text' field from each item and join them; otherwise, return the raw string
+        if isinstance(data, list):
+            return " ".join([item.get('text', '') for item in data])
+        return str(raw_data)
+    except:
+        return str(raw_data)
+
 # RabbitMQ Listener Logic
 
 def start_rabbit_listener():
