@@ -13,7 +13,7 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN', '7890123456:ABC-DEF...') 
+TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN', '7890123456:ABC-DEF...')
 
 def get_db_connection():
     """Establishes a connection to the PostgreSQL database."""
@@ -49,7 +49,7 @@ def get_subscribers():
         cur.close()
         conn.close()
         return subs
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Error fetching subscribers: {e}")
         return []
 
@@ -66,7 +66,7 @@ def save_subscriber(chat_id):
         cur.close()
         conn.close()
         return True
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Error saving subscriber: {e}")
         return False
 
@@ -80,7 +80,7 @@ def send_telegram(chat_id, message):
             print(f"Telegram API rejected: {response.status_code} - {response.text}")
         else:
             print(f"Message sent successfully to: {chat_id}")
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Network error while sending Telegram message: {e}")
 
 def get_all_historical_data():
@@ -88,26 +88,31 @@ def get_all_historical_data():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT description, detected_text, blob_id FROM images WHERE status = 'completed' ORDER BY id DESC")
+        cur.execute(
+            "SELECT description, detected_text, blob_id FROM images "
+            "WHERE status = 'completed' ORDER BY id DESC"
+        )
         rows = cur.fetchall()
         cur.close()
         conn.close()
         return rows
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Error fetching history: {e}")
         return []
 
 def format_ocr_text(raw_data):
     """Formats the OCR JSON list into a readable string."""
     try:
-        # If it's already a string, try to parse it as JSON; if it's already a dict/list, use it directly
+        # If it's already a string, try to parse it as JSON;
+        # if it's already a dict/list, use it directly
         data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
-        
-        # If it's a list of dicts, extract the 'text' field from each item and join them; otherwise, return the raw string
+
+        # If it's a list of dicts, extract the 'text' field from each item and join them;
+        # otherwise, return the raw string
         if isinstance(data, list):
             return " ".join([item.get('text', '') for item in data])
         return str(raw_data)
-    except:
+    except Exception:  # pylint: disable=broad-exception-caught
         return str(raw_data)
 
 # RabbitMQ Listener Logic
@@ -123,7 +128,7 @@ def start_rabbit_listener():
         queue_name = result.method.queue
         channel.queue_bind(exchange='image_notifications', queue=queue_name)
 
-        def callback(ch, method, properties, body):
+        def callback(_ch, _method, _properties, body):
             try:
                 data = json.loads(body)
                 # Send Telegram notifications to all subscribers
@@ -131,27 +136,30 @@ def start_rabbit_listener():
                 if current_subs:
                     raw_text = data.get('text', '')
                     readable_text = format_ocr_text(raw_text)
-                    clean_text = readable_text[:3000] + "..." if len(readable_text) > 3000 else readable_text
+                    clean_text = readable_text[:3000] + "..." if len(readable_text) > 3000 else readable_text # pylint: disable=C0301
 
-                    msg = (f"<b>🔔 New OCR Result!</b>\n\n"
-                           f"<b>Description:</b> {data.get('desc', 'No description')}\n"
-                           f"<b>Text:</b>\n<i>{clean_text}</i>")
+                    msg = (  # pylint: disable=C0301
+                        f"<b>New OCR Result!</b>\n\n"
+                        f"<b>Description:</b> {data.get('desc', 'No description')}\n"
+                        f"<b>Text:</b>\n<i>{clean_text}</i>"
+                    )
 
                     for chat_id in current_subs:
-                        threading.Thread(target=send_telegram, args=(chat_id, msg), daemon=True).start()
-            except Exception as e:
+                        threading.Thread(target=send_telegram, args=(chat_id, msg), daemon=True).start() # pylint: disable=C0301
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 print(f"Error in callback: {e}")
 
         channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
         print("Klammeraffe is listening for RabbitMQ messages...")
         channel.start_consuming()
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"RabbitMQ connection error: {e}")
 
 # API Endpoints
 
 @app.route('/api/subscribe', methods=['POST'])
 def subscribe():
+    """Saves a new subscriber to the database."""
     chat_id = request.json.get('chat_id')
     if not chat_id:
         return jsonify({"error": "Missing chat_id"}), 400
@@ -161,23 +169,22 @@ def subscribe():
         if history:
             # Shortened header
             history_msg = "<b>📂 History Sync (Last 5):</b>\n\n"
-            
+
             # Just the Last 5 entries, with cleaned and shortened text
             for row in history[:5]:
                 # Clean and shorten the OCR text for display
                 raw_text = format_ocr_text(row[1])
                 short_text = (raw_text[:60] + "...") if len(raw_text) > 60 else raw_text
-                
+
                 line = f"• {row[0]}: <i>{short_text}</i>\n"
-                
-                # Check if adding this line would exceed Telegram's message limit (4000 chars)
-                if len(history_msg) + len(line) < 4000:
+                # Check if adding this line would exceed Telegram's message limit
+                if len(history_msg) + len(line) < 4000:  # pylint: disable=C0301
                     history_msg += line
-            
+
             send_telegram(chat_id, history_msg)
         else:
             send_telegram(chat_id, "Subscribed! No history yet.")
-            
+
         return jsonify({"status": "subscribed"}), 200
     return jsonify({"error": "Database error"}), 500
 
