@@ -46,6 +46,11 @@ def index():
     """Renders the HTML form for image upload."""
     return render_template('index.html')
 
+@app.route('/subscribe')
+def index():
+    """Renders the HTML form for image upload."""
+    return render_template('subscribe.html')
+
 @app.route('/view/<string:blob_id>')
 def view_permalink(blob_id):
     """Renders the HTML view for a specific image using UUID."""
