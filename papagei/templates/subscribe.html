@@ -105,11 +105,6 @@
             transition: background 0.3s;
         }
 
-        /* Blinking animation for live badge */
-        @keyframes blink { 
-            50% { opacity: 0.3; } 
-        }
-
         /* Pulse animation for pending state */
         @keyframes pulse {
             50% { opacity: 0.6; }
@@ -125,21 +120,13 @@
         <p>Real-time OCR Subscription & Historical Logs</p>
     </div>
 
-<!-- Live notifications section -->
-    <div class="card">
-        <h2>Live Notifications <span class="live-badge">LIVE</span></h2>
-        <div id="live-updates">
-            <p style="color: #888;">Waiting for new uploads...</p>
-        </div>
-    </div>
-
 <!-- Historical Analysis Log Table -->
     <div class="card">
         <h2>Historical Analysis Log</h2>
         <table id="history-table">
             <thead>
                 <tr>
-                    <th>Timestamp</th>
+                    <th>ID (Link)</th>
                     <th>Description</th>
                     <th>Detected Text</th>
                     <th>Status</th>
@@ -168,39 +155,9 @@
     </form>
 </div>
 
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
 <script>
-    /* 1. Establish WebSocket connection */
-    const socket = io(); 
-
-    /* 2. Handle real-time updates */
-    socket.on('update_dashboard', (data) => {
-        const liveUpdates = document.getElementById('live-updates');
-        const tbody = document.getElementById('history-body');
-
-        // Update the Live section
-        liveUpdates.innerHTML = `
-            <div style="border-left: 4px solid #34a853; padding-left: 10px; margin-bottom: 10px;">
-                <strong>New analysis received:</strong> ${data.desc}<br>
-                <small>${new Date().toLocaleTimeString()}</small>
-            </div>
-        `;
-
-        // Insert the new row at the top of the table
-        const newRow = `
-            <tr>
-                <td>Now</td>
-                <td>${data.desc}</td>
-                <td><code>${data.text.substring(0, 100)}...</code></td>
-                <td><span class="status-tag completed">completed</span></td>
-            </tr>
-        `;
-        tbody.insertAdjacentHTML('afterbegin', newRow);
-    });
-
-    /* 3. Load actual history from the server */
-    async function loadHistory() {
+    /* 1. Load actual history from the server */
+async function loadHistory() {
         try {
             const response = await fetch('/api/history');
             if (!response.ok) throw new Error("Error fetching data");
@@ -214,15 +171,19 @@
             }
 
             tbody.innerHTML = data.map(row => {
+                // Concatenate text if it's an array, otherwise use it directly
                 const fullText = Array.isArray(row.text) 
                         ? row.text.map(t => t.text).join(' ') 
                         : row.text;
                 
                 const displaySubstr = fullText.substring(0, 100);
+                
+                // Shorten Blob ID (first 8 characters)
+                const shortId = row.blob_id ? row.blob_id.substring(0, 8) : "View";
 
                 return `
                     <tr>
-                        <td>-</td>
+                        <td><a href="/view/${row.blob_id}" target="_blank">#${shortId}</a></td>
                         <td>${row.desc}</td>
                         <td><code>${displaySubstr}...</code></td>
                         <td><span class="status-tag completed">completed</span></td>
@@ -237,7 +198,7 @@
     // Initialization
     loadHistory();
 
-    /* 4. Subscription form */
+    /* 2. Subscription form */
     document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const chatId = document.getElementById('chat-id').value;

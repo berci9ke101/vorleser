@@ -1,6 +1,6 @@
 """
 The notification service for Vorleser OCR (Klammeraffe).
-Handles Telegram subscriptions and real-time WebSocket updates.
+Handles Telegram subscriptions.
 """
 
 import os
@@ -10,11 +10,8 @@ import requests
 import pika
 import psycopg2
 from flask import Flask, request, jsonify
-from flask_socketio import SocketIO
 
 app = Flask(__name__)
-# SocketIO instance with CORS allowed for all origins (for simplicity)
-socketio = SocketIO(app, cors_allowed_origins="*")
 
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN', '7890123456:ABC-DEF...') 
 
@@ -91,7 +88,7 @@ def get_all_historical_data():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT description, detected_text FROM images WHERE status = 'completed' ORDER BY id DESC")
+        cur.execute("SELECT description, detected_text, blob_id FROM images WHERE status = 'completed' ORDER BY id DESC")
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -116,10 +113,7 @@ def start_rabbit_listener():
         def callback(ch, method, properties, body):
             try:
                 data = json.loads(body)
-                # 1. Update Dashboard in real-time
-                socketio.emit('update_dashboard', data)
-
-                # 2. Send Telegram notifications to all subscribers
+                # Send Telegram notifications to all subscribers
                 current_subs = get_subscribers()
                 if current_subs:
                     raw_text = data.get('text', '')
@@ -170,7 +164,7 @@ def subscribe():
 def history_api():
     """Dashboard historical data endpoint."""
     data = get_all_historical_data()
-    formatted = [{"desc": r[0], "text": r[1]} for r in data]
+    formatted = [{"desc": r[0], "text": r[1], "blob_id": r[2]} for r in data]
     return jsonify(formatted)
 
 if __name__ == '__main__':
@@ -178,5 +172,4 @@ if __name__ == '__main__':
     init_db()
     # Start RabbitMQ listener in a separate thread
     threading.Thread(target=start_rabbit_listener, daemon=True).start()
-    # Start the Flask app with SocketIO support
-    socketio.run(app, host='0.0.0.0', port=5002, allow_unsafe_werkzeug=True)
+    app.run(host='0.0.0.0', port=5002)

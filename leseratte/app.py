@@ -94,6 +94,7 @@ def process_task(ch, method, _properties, body):
             notification_body = {
                 'desc': description, 
                 'text': json.dumps(bounding_boxes),
+                'blob_id': blob_id,
                 'status': 'completed'
             }
 
