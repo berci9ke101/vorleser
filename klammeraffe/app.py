@@ -78,9 +78,13 @@ def send_telegram(chat_id, message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": message, "parse_mode": "HTML"}
     try:
-        requests.post(url, json=payload, timeout=5)
+        response = requests.post(url, json=payload, timeout=5)
+        if not response.ok:
+            print(f"Telegram API rejected: {response.status_code} - {response.text}")
+        else:
+            print(f"Message sent successfully to: {chat_id}")
     except Exception as e:
-        print(f"Telegram API error: {e}")
+        print(f"Network error while sending Telegram message: {e}")
 
 def get_all_historical_data():
     """Fetches all historical OCR results from the database."""

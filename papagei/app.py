@@ -144,6 +144,14 @@ def proxy_subscribe():
     response = requests.post(klammeraffe_url, json=request.json, timeout=10)
     return response.content, response.status_code
 
+@app.route('/api/history', methods=['GET'])
+def proxy_history():
+    """Forward history request to Klammeraffe"""
+    klammeraffe_url = "http://vorleser-klammeraffe:5002/api/history"
+    
+    response = requests.get(klammeraffe_url, timeout=10)
+    return response.content, response.status_code
+
 @app.errorhandler(404)
 def page_not_found(_e):
     """Custom 404 error handler."""
