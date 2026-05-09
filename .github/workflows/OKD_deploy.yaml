@@ -104,4 +104,4 @@ jobs:
           oc rollout restart deployment/vorleser-maulwurf
           oc rollout restart deployment/vorleser-leseratte
           oc rollout restart deployment/vorleser-papagei
-          oc rollout restart deployment/vorleser-notification
+          oc rollout restart deployment/vorleser-klammeraffe
