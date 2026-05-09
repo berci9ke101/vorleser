@@ -148,7 +148,7 @@ def proxy_subscribe():
 def proxy_history():
     """Forward history request to Klammeraffe"""
     klammeraffe_url = "http://vorleser-klammeraffe:5002/api/history"
-    
+
     response = requests.get(klammeraffe_url, timeout=10)
     return response.content, response.status_code
 
