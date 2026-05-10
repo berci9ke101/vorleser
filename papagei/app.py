@@ -106,7 +106,7 @@ def upload_image():
     channel.basic_publish(
         exchange='',
         routing_key='ocr_tasks',
-        body=json.dumps({'image_id': image_id})
+        body=json.dumps({'image_id': image_id}),
         properties=pika.BasicProperties(
             delivery_mode=2,  # Make message persistent
         )

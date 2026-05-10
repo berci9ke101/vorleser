@@ -143,16 +143,16 @@ def start_rabbit_listener():
                     )
 
                     for chat_id in current_subs:
-                        threading.Thread(target=send_telegram, args=(chat_id, msg), daemon=True).start()
-            except Exception as e:
+                        threading.Thread(target=send_telegram, args=(chat_id, msg), daemon=True).start() # pylint: disable=C0301
+            except Exception as e: # pylint: disable=broad-exception-caught
                 print(f"Error in callback: {e}")
 
         # Consume messages from the 'ocr_notifications' queue
-        channel.basic_consume(queue='ocr_notifications', on_message_callback=callback, auto_ack=True)
-        
+        channel.basic_consume(queue='ocr_notifications', on_message_callback=callback, auto_ack=True) # pylint: disable=C0301
+
         print("Klammeraffe is listening on queue 'ocr_notifications'...")
         channel.start_consuming()
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         print(f"RabbitMQ connection error: {e}")
 
 # API Endpoints
