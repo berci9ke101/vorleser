@@ -174,7 +174,7 @@ async function loadHistory() {
                 // Concatenate text if it's an array, otherwise use it directly
                 const fullText = Array.isArray(row.text) 
                         ? row.text.map(t => t.text).join(' ') 
-                        : row.text;
+                        : (row.text || "");
                 
                 const displaySubstr = fullText.substring(0, 100);
                 
