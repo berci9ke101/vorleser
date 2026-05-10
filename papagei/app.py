@@ -107,6 +107,9 @@ def upload_image():
         exchange='',
         routing_key='ocr_tasks',
         body=json.dumps({'image_id': image_id})
+        properties=pika.BasicProperties(
+            delivery_mode=2,  # Make message persistent
+        )
     )
     connection.close()
 

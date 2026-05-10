@@ -89,8 +89,8 @@ def get_all_historical_data():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
-            "SELECT description, detected_text, blob_id FROM images "
-            "WHERE status = 'completed' ORDER BY id DESC"
+            "SELECT description, detected_text, blob_id, status FROM images "
+            "ORDER BY id DESC"
         )
         rows = cur.fetchall()
         cur.close()
@@ -123,10 +123,8 @@ def start_rabbit_listener():
         connection = pika.BlockingConnection(pika.ConnectionParameters('vorleser-brieftaube'))
         channel = connection.channel()
 
-        channel.exchange_declare(exchange='image_notifications', exchange_type='fanout')
-        result = channel.queue_declare(queue='', exclusive=True)
-        queue_name = result.method.queue
-        channel.queue_bind(exchange='image_notifications', queue=queue_name)
+        # Fixed queue declaration with durable=True for persistence
+        channel.queue_declare(queue='ocr_notifications', durable=True)
 
         def callback(_ch, _method, _properties, body):
             try:
@@ -139,20 +137,22 @@ def start_rabbit_listener():
                     clean_text = readable_text[:3000] + "..." if len(readable_text) > 3000 else readable_text # pylint: disable=C0301
 
                     msg = (  # pylint: disable=C0301
-                        f"<b>New OCR Result!</b>\n\n"
+                        f"<b>🔔 New OCR Result!</b>\n\n"
                         f"<b>Description:</b> {data.get('desc', 'No description')}\n"
                         f"<b>Text:</b>\n<i>{clean_text}</i>"
                     )
 
                     for chat_id in current_subs:
-                        threading.Thread(target=send_telegram, args=(chat_id, msg), daemon=True).start() # pylint: disable=C0301
-            except Exception as e:  # pylint: disable=broad-exception-caught
+                        threading.Thread(target=send_telegram, args=(chat_id, msg), daemon=True).start()
+            except Exception as e:
                 print(f"Error in callback: {e}")
 
-        channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
-        print("Klammeraffe is listening for RabbitMQ messages...")
+        # Consume messages from the 'ocr_notifications' queue
+        channel.basic_consume(queue='ocr_notifications', on_message_callback=callback, auto_ack=True)
+        
+        print("Klammeraffe is listening on queue 'ocr_notifications'...")
         channel.start_consuming()
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception as e:
         print(f"RabbitMQ connection error: {e}")
 
 # API Endpoints
@@ -192,7 +192,7 @@ def subscribe():
 def history_api():
     """Dashboard historical data endpoint."""
     data = get_all_historical_data()
-    formatted = [{"desc": r[0], "text": r[1], "blob_id": r[2]} for r in data]
+    formatted = [{"desc": r[0], "text": r[1], "blob_id": r[2], "status": r[3]} for r in data]
     return jsonify(formatted)
 
 if __name__ == '__main__':

@@ -186,7 +186,7 @@ async function loadHistory() {
                         <td><a href="/view/${row.blob_id}" target="_blank">#${shortId}</a></td>
                         <td>${row.desc}</td>
                         <td><code>${displaySubstr}...</code></td>
-                        <td><span class="status-tag completed">completed</span></td>
+                        <td><span class="status-tag ${row.status}">${row.status}</span></td>
                     </tr>
                 `;
             }).join('');
