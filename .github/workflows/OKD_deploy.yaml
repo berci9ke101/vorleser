@@ -102,10 +102,10 @@ jobs:
 
       - name: Start Builds
         run: |
-          oc start-build vorleser-maulwurf
-          oc start-build vorleser-leseratte
-          oc start-build vorleser-papagei
-          oc start-build vorleser-klammeraffe
+          oc start-build vorleser-maulwurf --follow
+          oc start-build vorleser-leseratte --follow
+          oc start-build vorleser-papagei --follow
+          oc start-build vorleser-klammeraffe --follow
 
       - name: Trigger Rollout (Refresh Deployments)
         run: |

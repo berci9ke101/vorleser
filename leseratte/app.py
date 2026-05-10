@@ -86,7 +86,7 @@ def process_task(ch, method, _properties, body):
                 pika.ConnectionParameters('vorleser-brieftaube')
             )
             notification_channel = notification_conn.channel()
-            notification_channel.queue_declare(queue='ocr_notifications', durable=True) # Ensure the queue exists
+            notification_channel.queue_declare(queue='ocr_notifications', durable=True) # pylint: disable=C0301
 
             notification_body = {
                 'desc': description, 
