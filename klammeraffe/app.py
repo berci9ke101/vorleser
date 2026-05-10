@@ -137,7 +137,8 @@ def start_rabbit_listener():
                     clean_text = readable_text[:3000] + "..." if len(readable_text) > 3000 else readable_text # pylint: disable=C0301
 
                     msg = (  # pylint: disable=C0301
-                        f"<b>🔔 New OCR Result!</b>\n\n"
+                        f"<b>🔔 New OCR Result!</b>\n"
+                        f"<a href='https://vorleser-papagei-vorleser.apps.okd.fured.cloud.bme.hu/subscribe'>View here</a>\n\n" # pylint: disable=C0301
                         f"<b>Description:</b> {data.get('desc', 'No description')}\n"
                         f"<b>Text:</b>\n<i>{clean_text}</i>"
                     )
@@ -167,8 +168,11 @@ def subscribe():
     if save_subscriber(chat_id):
         history = get_all_historical_data()
         if history:
-            # Shortened header
-            history_msg = "<b>📂 History Sync (Last 5):</b>\n\n"
+            # Shortened header with subscription link
+            history_msg = (
+                "<b>📂 History Sync (Last 5):</b>\n"
+                "<a href='https://vorleser-papagei-vorleser.apps.okd.fured.cloud.bme.hu/subscribe'>View here</a>\n\n" # pylint: disable=C0301
+            )
 
             # Just the Last 5 entries, with cleaned and shortened text
             for row in history[:5]:
