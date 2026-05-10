@@ -86,7 +86,7 @@ def process_task(ch, method, _properties, body):
                 pika.ConnectionParameters('vorleser-brieftaube')
             )
             notification_channel = notification_conn.channel()
-            channel.queue_declare(queue='ocr_notifications', durable=True) # Ensure the queue exists
+            notification_channel.queue_declare(queue='ocr_notifications', durable=True) # Ensure the queue exists
 
             notification_body = {
                 'desc': description, 
@@ -95,7 +95,7 @@ def process_task(ch, method, _properties, body):
                 'status': 'completed'
             }
 
-            channel.basic_publish(
+            notification_channel.basic_publish(
                 exchange='',
                 routing_key='ocr_notifications',
                 body=json.dumps(notification_body),
