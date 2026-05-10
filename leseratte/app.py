@@ -80,16 +80,13 @@ def process_task(ch, method, _properties, body):
         )
         conn.commit()
 
-        # Send real-time notification to Dashboard via RabbitMQ
+        # Send real-time notification to Klammeraffe via RabbitMQ
         try:
             notification_conn = pika.BlockingConnection(
                 pika.ConnectionParameters('vorleser-brieftaube')
             )
             notification_channel = notification_conn.channel()
-            notification_channel.exchange_declare(
-                exchange='image_notifications',
-                exchange_type='fanout'
-            )
+            notification_channel.queue_declare(queue='ocr_notifications', durable=True) # Ensure the queue exists
 
             notification_body = {
                 'desc': description, 
@@ -99,9 +96,12 @@ def process_task(ch, method, _properties, body):
             }
 
             notification_channel.basic_publish(
-                exchange='image_notifications',
-                routing_key='',
-                body=json.dumps(notification_body)
+                exchange='',
+                routing_key='ocr_notifications',
+                body=json.dumps(notification_body),
+                properties=pika.BasicProperties(
+                    delivery_mode=2,  # Make message persistent
+                )
             )
             notification_conn.close()
             print(f"Notification sent for image ID: {image_id}")
