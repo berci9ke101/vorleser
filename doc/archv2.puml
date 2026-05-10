@@ -1,0 +1,59 @@
+@startuml
+title Vorleser OCR - Mikroszolgáltatás Architektúra
+
+skinparam componentStyle uml2
+skinparam databaseBackgroundColor #E1F5FE
+skinparam queueBackgroundColor #FFF9C4
+skinparam nodeBackgroundColor #F5F5F5
+
+actor "Felhasználó (Böngésző)" as User
+
+cloud "Telegram API" as Telegram
+
+
+package "OKD Környezet" {
+    
+    component [Papagei] <<Frontend / API Gateway>> as Papagei
+    component [Leseratte] <<OCR feldolgozó>> as Leseratte
+    component [Maulwurf] <<Blob tároló>> as Maulwurf
+    component [Klammeraffe] <<Értesítési alrendszer>> as Klammeraffe
+    
+    database "Elefant" <<PostgreSQL adatbázis>> as Elefant
+    queue "Brieftaube" <<RabbitMQ üzenetsor>> as Brieftaube
+    
+    interface "Belépési pont (HTTPS)" as Route
+}
+
+User --> Route : 0. Feltöltés / Megtekintés
+Route --> Papagei : 1. Oldal betöltése (HTTP GET 5000)
+
+' Feltöltés adatfolyam
+Papagei --> Maulwurf : 2. Kép elmentése (HTTP PUT 5001)
+Papagei --> Elefant : 3. Kép metaadatok elmentése (SQL 5432)
+Papagei --> Brieftaube : 4. Feladat ütemezése (AMQP 5672)
+
+' Feldolgozás adatfolyam
+Brieftaube --> Leseratte : 5. Feladat elkezdése (AMQP 5672)
+Leseratte --> Elefant : 6. Blob ID lekérése (SQL 5432)
+Leseratte --> Maulwurf : 7. Kép beszerzése (HTTP GET 5001)
+Leseratte --> Elefant : 8. Kép metaadatok frissítése (SQL 5432)
+
+' Megtekintés adatfolyam
+Papagei -right-> Elefant : 9. Eredmények olvasása (SQL 5432)
+Papagei --> Maulwurf : 10. Kép proxyzása (HTTP GET 5001)
+
+' Értesítési adatfolyam
+Leseratte -[dashed,#blue]up-> Brieftaube : <color:blue>A. Eredmény publikálása (AMQP 5672)</color>
+Brieftaube -[dashed,#blue]-> Klammeraffe : <color:blue>B. Értesítés elkezdése (AMQP 5672)</color>
+Klammeraffe -[dashed,#blue]-> Elefant : <color:blue>C. Feliratkozók lekérése (SQL 5432)</color>
+Klammeraffe -[dashed,#blue]-> Telegram : <color:blue>D. Értesítés küldése (HTTPS POST)</color>
+
+' Feliratkozási adatfolyam (Új felhasználónak)
+Papagei -[bold,#green]-> Klammeraffe : <color:green>a. Subscribe kérés proxyzása (HTTP POST 5002)</color>
+Klammeraffe -[bold,#green]-> Elefant : <color:green>b. Feliratkozó mentése / Előzmény lekérése (SQL 5432)</color>
+Klammeraffe -[bold,#green]-> Telegram : <color:green>c. Előzmények elküldése (HTTPS POST)</color>
+
+' Vezérlőpult frissítési adatfolyam
+Papagei -[dotted,#purple]right-> Klammeraffe : <color:purple>i. Előzmény lekérdezése (HTTP GET 5002)</color>
+Klammeraffe -[dotted,#purple]-> Elefant : <color:purple>ii. Eredmények kiolvasása (SQL 5432)</color>
+@enduml
