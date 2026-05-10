@@ -23,6 +23,7 @@
 \usepackage{etoolbox}
 \usepackage{lscape}
 \usepackage{pdflscape}
+\usepackage{xcolor}
 
 % Commands
 \renewcommand{\thepage}{-- \arabic{page} --}
@@ -318,7 +319,7 @@ vorleser/
 		\begin{figure}[!t]
 			\centering
 			\includegraphics[height=0.7\textheight]{pic/arch-overview.png}
-			\caption{A Vorleser architektúrájának áttekintése}
+			\caption{A Vorleser architektúrájának áttekintése.}
 			\label{fig:arch-overview}
 		\end{figure}
 		A folyamat menete (ld.\ \ref{fig:arch-overview}.\ ábra): a felhasználó feltölti a képet (0.), amit a \textit{Papagei} fogad (1.), elment a \textit{Maulwurf} tárolóba (2.) és rögzít az \textit{Elefant} adatbázisban (3.). Ezután aszinkron feladatüzenetet küld a \textit{Brieftaube} üzenetsorba (4.) a feldolgozás megkezdéséhez.
@@ -393,6 +394,77 @@ vorleser-pap..   vorleser-papagei-vorleser.apps.okd.fured.cloud.bme.hu
 	\pikture{web-analysis.png}{A kész kép oldala.}{fig:web-analysis}{0.5}
 	
 	A beolvasott kép bármikor megtekinthető a \url{https://vorleser-papagei-vorleser.apps.okd.fured.cloud.bme.hu/view/c93b3a4e-0c7e-4210-bb41-5652c5dc6eb9_adatb.webp} oldalon.
+	
+	\section{Értesítési alrendszer}
+	
+	A projekt továbbfejlesztése során a rendszer kiegészült egy aszinkron értesítési alrendszerrel, amelynek központi eleme a \textbf{\textit{Klammeraffe} (Értesítési komponens)} nevű mikroszolgáltatás. Ennek a modulnak a feladata, hogy a sikeresen feldolgozott OCR feladatokról valós időben Telegram értesítést küldjön a feliratkozott felhasználóknak, valamint egy belső API-n keresztül kiszolgálja az üzemeltetői vezérlőpult mindenkori adatait az adatbázis alapján. 
+	
+	\subsection{Architekturális változások}
+	
+	Az értesítési funkció bevezetésével az architektúra jelentősen kibővült. A \textit{Papagei} kiegészült egy dedikált vezérlőpult felülettel, amelynek hálózati kéréseit belső proxy-n keresztül továbbítja a \textit{Klammeraffe} szolgáltatás felé. Az új architektúra felépítését \aref{fig:arch-overview2}.\ ábra szemlélteti.
+	
+	A munkafolyamat a következőképpen bővült:
+	\begin{itemize}
+		\item \textbf{Értesítési adatfolyam (Kék útvonal):} miután a \textit{Leseratte} sikeresen elvégzi a karakterfelismerést és frissíti a PostgreSQL adatbázist, egy új üzenetet helyez el a \textit{Brieftaube} \inlinebox{\texttt{ocr\_notifications}} nevű sorában. A \textit{Klammeraffe} ezt a sort figyeli, kiolvassa az eredményeket, lekérdezi az aktív feliratkozók listáját az \textit{Elefant} adatbázisból, végül \textit{HTTP} kéréseken keresztül kommunikál a \textit{Telegram API}-val.
+		
+		\item \textbf{Feliratkozási adatfolyam (Zöld útvonal):} Amikor egy operátor a weben keresztül regisztrálja a Telegram azonosítóját, a \textit{Papagei} a kérést belső proxy-ként továbbítja a \textit{Klammeraffe} felé (\textit{HTTP POST}). A szolgáltatás rögzíti az új feliratkozót az \textit{Elefant} adatbázisban, majd azonnal lekérdezi az eddigi OCR elemzések előzményeit. Végül ezeket az előzményeket egy kezdő szinkronizációs üzenet formájában továbbítja az új felhasználónak a \textit{Telegram API}-n keresztül.
+		
+		\item \textbf{Vezérlőpult frissítési adatfolyam (Lila útvonal):} A webes vezérlőpult táblázatának feltöltéséhez a \textit{Papagei} egy \textit{HTTP GET} kéréssel fordul a \textit{Klammeraffe} belső \inlinebox{\texttt{/api/history}} végpontjához. A \textit{Klammeraffe} ekkor kiolvassa az \textit{Elefant} adatbázisból a korábbi eredményeket, amelyeket a frontend dinamikusan, kliens oldalon dolgoz fel és jelenít meg.
+	\end{itemize}
+	
+	\subsection{Adatbázis-kezelés és robusztus feliratkozás}
+	
+	A \textit{Klammeraffe} az állapotmegőrzéshez egy új táblát (\inlinebox{\texttt{subscriptions}}) inicializál az \textit{Elefant} adatbázisban, amely a felhasználók egyedi \textit{Telegram Chat ID}-jeit tárolja. Mivel az elosztott rendszerekben előfordulhat, hogy egy felhasználó többször is megpróbál feliratkozni (például a hálózat lassúsága vagy újratöltés miatt), a konzisztencia megőrzés jegyében az SQL beszúrás egy úgynevezett \textit{UPSERT} logikát használ:
+	
+	\begin{minted}{sql}
+INSERT INTO subscriptions (chat_id) 
+VALUES (%s) ON CONFLICT (chat_id) DO NOTHING;
+	\end{minted}
+	
+	Ez a megoldás garantálja az adatbázis konzisztenciáját és megelőzi a duplikált azonosítók miatti SQL hibákat \cite{sql-on-conflict}.
+	
+	\begin{landscape}
+		\begin{figure}[!t]
+			\centering
+			\includegraphics[width=\linewidth]{pic/arch-overview2.png}
+			\caption{A Vorleser kiterjesztett mikroszolgáltatás architektúrája.}
+			\label{fig:arch-overview2}
+		\end{figure}
+		Az új folyamatok menete (ld.\ \ref{fig:arch-overview2}.\ ábra): Az \textbf{értesítési adatfolyam} (\textcolor{blue}{szaggatott kék vonalak}) során, miután a \textit{Leseratte} befejezi az OCR feldolgozást, az eredményt publikálja a \textit{Brieftaube} üzenetsorba (\textcolor{blue}{A.}). A \textit{Klammeraffe} ezt az üzenetet fogadva megkezdi az értesítési folyamatot (\textcolor{blue}{B.}), lekéri az aktív feliratkozókat az \textit{Elefant} adatbázisból (\textcolor{blue}{C.}), majd egy \textit{HTTP POST} kérés segítségével elküldi számukra a valós idejű riasztást a \textit{Telegram API}-n keresztül (\textcolor{blue}{D.}).
+		
+		A \textbf{feliratkozási adatfolyam} (\textcolor{green!70!black}{vastag zöld vonalak}) egy új operátor regisztrációjakor indul. A \textit{Papagei} a webes felületről érkező feliratkozási kérést proxy-ként továbbítja a \textit{Klammeraffe} felé (\textcolor{green!70!black}{a.}). A szolgáltatás elmenti az új feliratkozót és azonnal lekéri az eddigi elemzések előzményeit az \textit{Elefant} adatbázisból (\textcolor{green!70!black}{b.}), végül egy kezdő szinkronizációs üzenet formájában továbbítja azokat az új felhasználó \textit{Telegram} fiókjára (\textcolor{green!70!black}{c.}).
+		
+		Végül a \textbf{vezérlőpult frissítési adatfolyama} (\textcolor[RGB]{165,76,165}{pontozott lila vonalak}) a vezérlőpult kiszolgálásáért felel. A \textit{Papagei} egy \textit{HTTP GET} kéréssel lekérdezi az előzményeket a \textit{Klammeraffe} belső végpontjáról (\textcolor[RGB]{165,76,165}{i.}), amely az \textit{Elefant} adatbázisból olvassa ki a korábbi eredményeket (\textcolor[RGB]{165,76,165}{ii.}), így biztosítva a táblázat valós idejű és dinamikus tartalmát.
+	\end{landscape}
+	
+	\subsection{Üzenetsor perzisztencia}
+	
+	Az elosztott aszinkron rendszerek esetében kritikus szempont, hogy egyetlen esemény se vesszen el a komponensek esetleges újraindulása (például egy OKD rollout vagy skálázás) során. Az új komponens fejlesztése során a \textit{Brieftaube} konfigurációját a hibatűrő működéshez igazítottam:
+	
+	\begin{enumerate}
+		\item \textbf{Durable Queues:} Az \inlinebox{\texttt{ocr\_notifications}} sor tartós (\inlinebox{\texttt{durable=True}}) beállítással jön létre, így maga az üzenetsor túléli a RabbitMQ szerver újraindulását \cite{rabbitmq-durability}.
+		\item \textbf{Persistent Messages:} A \textit{Leseratte} az elkészült feladatokat \inlinebox{\texttt{delivery\_mode=2}} (perzisztens) tulajdonsággal publikálja \cite{rabbitmq-durability}.
+	\end{enumerate}
+	
+	Ez a megközelítés garantálja, hogy ha a \textit{Klammeraffe} éppen nem elérhető, az elküldendő értesítések biztonságban várakoznak a sorban, amíg az új pod fel nem pörög.
+	
+	\subsection{Telegram integráció és biztonságos konfigurációkezelés}
+	
+	A Telegram üzenetküldés \textit{HTTP POST} kéréseken keresztül valósul meg a hivatalos \textit{Telegram Bot API} \inlinebox{\texttt{sendMessage}} végpontján \cite{telegram-send}. A JSON adatszerkezetből a nyers OCR felismert szövegeket a Python kód összefűzi, méretüket a Telegram platform korlátaihoz igazítja, mielőtt beillesztené az üzenetbe. A vizuálisan tagolt megjelenés érdekében a \inlinebox{\texttt{parse\_mode="HTML"}} paramétert használtam \cite{telegram-format}.
+	
+	A \textit{Telegram Bot API} tokenje szenzitív adat, melynek a \inlinebox{\texttt{Deployment}} fájlokban való puszta tárolása komoly biztonsági kockázatot jelentett volna. Ennek kivédésére az OKD klaszteren egy natív \inlinebox{\texttt{Secret}} erőforrást (\inlinebox{\texttt{telegram-token}}) hoztam létre. A \textit{Klammeraffe} Deployment leírója az \inlinebox{\texttt{env.valueFrom.secretKeyRef}} direktíva segítségével futásidőben olvassa ki és injektálja ezt a tokent \inlinebox{\texttt{TELEGRAM\_TOKEN}} környezeti változóként a konténerbe, garantálva, hogy a kód verziókezelőjébe ne kerüljön fel érzékeny adat.
+	
+	\subsection{Vezérlőpult, API proxy és kliens-oldali hibakezelés}
+	
+	A \textit{Papagei} szolgáltatás kiegészült egy új üzemeltetői felülettel (\inlinebox{\texttt{/subscribe}}). Mivel az architektúrában a mikroszolgáltatások szigorúan szeparáltak, a frontend dedikált proxy végpontokon keresztül továbbítja a \inlinebox{\texttt{/api/history}} és \inlinebox{\texttt{/api/subscribe}} lekérdezéseket a \textit{Klammeraffe} felé, áthidalva ezzel a hálózati elérési korlátokat.
+	
+	Kliens oldalon a vezérlőpult táblázatának dinamikus generálása során egy egyszerű biztonsági mechanizmust vezettem be. Abban az esetben, ha egy képből nem nyerhető ki szöveg (például érvénytelen formátum, PDF feltöltése vagy feldolgozási hiba miatt), a PostgreSQL adatbázisban a szövegmező \inlinebox{\texttt{null}} értéket vesz fel. A többi mező nem jelent problémát, hiszen az adatbázisséma meggátolja a \inlinebox{\texttt{null}} érték felvételét.
+	
+	\begin{minted}{javascript}
+const fullText = Array.isArray(row.text) 
+? row.text.map(t => t.text).join(' ') 
+: (row.text || "");
+	\end{minted}
 	
 	\clearpage
 	\bibliographystyle{ieeetr}\phantomsection\addcontentsline{toc}{section}{\refname}\bibliography{bibliography}
