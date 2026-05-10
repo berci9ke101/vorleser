@@ -24,6 +24,7 @@ jobs:
           pip install -r maulwurf/requirements.txt
           pip install -r leseratte/requirements.txt
           pip install -r papagei/requirements.txt
+          pip install -r klammeraffe/requirements.txt
 
       - name: Run Pylint for maulwurf
         run: |
@@ -36,6 +37,14 @@ jobs:
       - name: Run Pylint for papagei
         run: |
           pylint papagei/app.py
+
+      - name: Run Pylint for maulwurf
+        run: |
+          pylint maulwurf/app.py
+
+      - name: Run Pylint for klammeraffe
+        run: |
+          pylint klammeraffe/app.py
 
   test:
     runs-on: ubuntu-latest

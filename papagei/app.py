@@ -46,6 +46,11 @@ def index():
     """Renders the HTML form for image upload."""
     return render_template('index.html')
 
+@app.route('/subscribe')
+def subscribe():
+    """Renders the HTML form for image upload."""
+    return render_template('subscribe.html')
+
 @app.route('/view/<string:blob_id>')
 def view_permalink(blob_id):
     """Renders the HTML view for a specific image using UUID."""
@@ -137,6 +142,14 @@ def proxy_subscribe():
     klammeraffe_url = "http://vorleser-klammeraffe:5002/api/subscribe"
 
     response = requests.post(klammeraffe_url, json=request.json, timeout=10)
+    return response.content, response.status_code
+
+@app.route('/api/history', methods=['GET'])
+def proxy_history():
+    """Forward history request to Klammeraffe"""
+    klammeraffe_url = "http://vorleser-klammeraffe:5002/api/history"
+
+    response = requests.get(klammeraffe_url, timeout=10)
     return response.content, response.status_code
 
 @app.errorhandler(404)
