@@ -347,6 +347,8 @@ vorleser/
 	
 	A frontend a Flask sablonkezelő rendszerét alkalmazza a dinamikus HTML tartalom előállításához \cite{flask-templates}. A felismert szövegek vizuális megjelenítésekor a rendszer abszolút pozicionált \inlinebox{\texttt{div}} elemeket hoz létre rétegként az eredeti kép felett. Ez a megoldás nem csak a találatok bekeretezését teszi lehetővé, hanem a felhasználó közvetlenül ki is jelölheti és másolhatja a képen látható szöveget.
 	
+	A frontend az eredmények megjelenítésekor automatikus lekérdezést alkalmaz, azaz amíg a feladat állapota \inlinebox{\texttt{pending}}, két másodpercenként a háttérben újra lekéri az adatokat az API-tól, így a feldolgozás befejeztével az eredmény manuális oldalfrissítés nélkül jelenik meg.
+	
 	\subsection{A CI/CD folyamat áttekintése}
 	A Vorleser projekt folyamatos integrációját egy összetett GitHub Actions munkafolyamat automatizálja, amely minden \inlinebox{\texttt{main}} ágra történő feltöltéskor (\textit{push}) aktiválódik. A folyamat két fő szakaszra tagolódik: ellenőrzés és tesztelés, valamint az OKD alapú telepítés.
 	
@@ -359,7 +361,7 @@ vorleser/
 	\subsection{Az RBAC hiba elhárítása}
 	A telepítési folyamat során jogosultsági problémák merültek fel az OKD klaszteren, mivel a CI/CD triggert végző fióknak nem volt elegendő joga a \inlinebox{\texttt{PVC}}-k kezeléséhez. A hiba elhárításához a \inlinebox{\texttt{github-trigger}} service account-hoz hozzárendeltem az \inlinebox{\texttt{edit}} szerepkört a projekt névterében. A módosítás után a \inlinebox{\texttt{oc describe rolebinding edit}} parancs igazolta, hogy a jogosultságok megfelelően frissültek.
 	
-	\begin{minted}{bash}
+	\begin{minted}[fontsize=\footnotesize]{bash}
 # Az edit role hozzárendelése a service account-hoz
 oc adm policy add-role-to-user edit \
 system:serviceaccount:vorleser:github-trigger -n vorleser
